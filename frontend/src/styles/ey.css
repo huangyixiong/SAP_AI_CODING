@@ -1,0 +1,187 @@
+/* ─── EY Brand Design System ─────────────────────────────────── */
+:root {
+  --ey-yellow: #FFE600;
+  --ey-yellow-hover: #F0D800;
+  --ey-dark: #2E2E38;
+  --ey-gray: #747480;
+  --ey-light-gray: #E6E6E8;
+  --ey-bg: #F6F6FA;
+  --ey-white: #FFFFFF;
+  --ey-border: #DEDEE0;
+}
+
+/* Override Ant Design border-radius to match EY sharp style */
+.ant-btn,
+.ant-input,
+.ant-select-selector,
+.ant-card,
+.ant-alert,
+.ant-steps-item-icon,
+.ant-tag,
+.ant-table,
+.ant-dropdown-menu,
+.ant-modal-content {
+  border-radius: 0 !important;
+}
+
+/* ── Primary Button → EY Yellow ─── */
+.ant-btn-primary {
+  background-color: var(--ey-yellow) !important;
+  border-color: var(--ey-yellow) !important;
+  color: var(--ey-dark) !important;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.ant-btn-primary:hover:not(:disabled) {
+  background-color: var(--ey-yellow-hover) !important;
+  border-color: var(--ey-yellow-hover) !important;
+  color: var(--ey-dark) !important;
+}
+
+.ant-btn-primary:disabled {
+  background-color: var(--ey-light-gray) !important;
+  border-color: var(--ey-light-gray) !important;
+  color: var(--ey-gray) !important;
+}
+
+.ant-btn-primary.ant-btn-loading {
+  background-color: var(--ey-yellow) !important;
+  color: var(--ey-dark) !important;
+}
+
+/* ── Default Button ─── */
+.ant-btn-default {
+  border-color: var(--ey-dark) !important;
+  color: var(--ey-dark) !important;
+}
+
+.ant-btn-default:hover:not(:disabled) {
+  border-color: var(--ey-yellow) !important;
+  color: var(--ey-dark) !important;
+  background: #fffde0 !important;
+}
+
+/* ── Danger Button ─── */
+.ant-btn-primary.ant-btn-dangerous {
+  background-color: #c0392b !important;
+  border-color: #c0392b !important;
+  color: #fff !important;
+}
+
+/* ── Card ─── */
+.ant-card {
+  border: 1px solid var(--ey-border) !important;
+  box-shadow: 0 1px 4px rgba(46, 46, 56, 0.06) !important;
+}
+
+.ant-card-head {
+  border-bottom: 2px solid var(--ey-yellow) !important;
+  background: var(--ey-white) !important;
+  color: var(--ey-dark) !important;
+  font-weight: 600 !important;
+  min-height: 44px !important;
+}
+
+.ant-card-head-title {
+  color: var(--ey-dark) !important;
+  font-size: 14px !important;
+  letter-spacing: 0.02em;
+}
+
+/* ── Steps ─── */
+.ant-steps-item-process .ant-steps-item-icon {
+  background-color: var(--ey-yellow) !important;
+  border-color: var(--ey-yellow) !important;
+}
+
+.ant-steps-item-process .ant-steps-item-icon .ant-steps-icon {
+  color: var(--ey-dark) !important;
+}
+
+.ant-steps-item-finish .ant-steps-item-icon {
+  border-color: var(--ey-yellow) !important;
+}
+
+.ant-steps-item-finish .ant-steps-item-icon .ant-steps-icon {
+  color: var(--ey-yellow) !important;
+}
+
+.ant-steps-item-finish
+  > .ant-steps-item-container
+  > .ant-steps-item-tail::after {
+  background-color: var(--ey-yellow) !important;
+}
+
+/* ── Table ─── */
+.ant-table-thead > tr > th {
+  background: var(--ey-dark) !important;
+  color: var(--ey-white) !important;
+  font-weight: 600 !important;
+  border-radius: 0 !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #fffde0 !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-selected > td {
+  background: #fff9b0 !important;
+}
+
+/* ── Select / Input focus ─── */
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: var(--ey-dark) !important;
+  box-shadow: 0 0 0 2px rgba(255, 230, 0, 0.3) !important;
+}
+
+/* ── Badge ─── */
+.ant-badge-status-success .ant-badge-status-dot {
+  background-color: var(--ey-yellow) !important;
+}
+
+/* ── Alert success ─── */
+.ant-alert-success {
+  background: #fffde0 !important;
+  border-color: var(--ey-yellow) !important;
+}
+
+.ant-alert-success .ant-alert-icon {
+  color: var(--ey-dark) !important;
+}
+
+/* ── Dropdown menu ─── */
+.ant-dropdown-menu-item:hover {
+  background: #fffde0 !important;
+}
+
+/* ── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ey-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ey-light-gray);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ey-gray);
+}
+
+/* ── Global body ─── */
+body {
+  background: var(--ey-bg) !important;
+  font-family: 'EYInterstate', 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif !important;
+  color: var(--ey-dark) !important;
+}
+
+/* ── Page content area ─── */
+.ey-content {
+  background: var(--ey-bg);
+  min-height: 100%;
+}
