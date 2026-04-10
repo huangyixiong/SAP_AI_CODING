@@ -44,12 +44,52 @@ export function analyzeABAPSource(source: string): DetectedObject[] {
     }
   }
 
-  // Database tables referenced: FROM <table> / INTO TABLE <table>
-  const tableRe = /\bFROM\s+(\w+)\b/gi;
-  for (const m of source.matchAll(tableRe)) {
-    const name = m[1].toUpperCase();
-    if (name.startsWith('Z') || name.startsWith('Y')) {
-      add({ name, type: 'TABL', category: 'table', autoInclude: false });
+  // Type references: TYPE REF TO <class> or TYPE <class>
+  const typeRefRe = /\bTYPE\s+(REF\s+TO\s+)?(\w+)/gi;
+  for (const m of source.matchAll(typeRefRe)) {
+    const className = m[2].toUpperCase();
+    // Skip basic types and keywords
+    if (!['STRING', 'INTEGER', 'I', 'N', 'P', 'DECIMALS', 'ANY', 'DATA'].includes(className)) {
+      add({ name: className, type: 'CLAS', category: 'class', autoInclude: false });
+    }
+  }
+
+  // Interface implementation: INTERFACES <iface>
+  const interfaceRe = /\bINTERFACES\s+(\w+)/gi;
+  for (const m of source.matchAll(interfaceRe)) {
+    add({ name: m[1].toUpperCase(), type: 'INTF', category: 'interface', autoInclude: false });
+  }
+
+  // Database tables referenced: FROM <table>
+  const fromTableRe = /\bFROM\s+(\w+)\b/gi;
+  for (const m of source.matchAll(fromTableRe)) {
+    const tableName = m[1].toUpperCase();
+    // Include both custom and standard tables, excluding common SQL keywords misinterpreted as tables
+    if (!['DUAL', 'SELECT'].includes(tableName)) {
+      add({ name: tableName, type: 'TABL', category: 'table', autoInclude: false });
+    }
+  }
+
+  // INTO TABLE <table> or APPENDING TABLE <table>
+  const intoTableRe = /\b(?:INTO|APPENDING)\s+TABLE\s+(\w+)/gi;
+  for (const m of source.matchAll(intoTableRe)) {
+    add({ name: m[1].toUpperCase(), type: 'TABL', category: 'table', autoInclude: false });
+  }
+
+  // Data element references: TYPE <ddic_type> (Custom types starting with Z or Y)
+  const ddicTypeRe = /\bTYPE\s+(?:REF\s+TO\s+)?(Z\w+|Y\w+)/gi;
+  for (const m of source.matchAll(ddicTypeRe)) {
+    const typeName = m[1].toUpperCase();
+    // Could be DTEL, TABL, or CLAS - mark as DTEL/Type by default
+    add({ name: typeName, type: 'DTEL', category: 'type', autoInclude: false });
+  }
+
+  // Constant/Type definitions referencing DDIC: LIKE <ddic_object>
+  const likeRe = /\bLIKE\s+(\w+)/gi;
+  for (const m of source.matchAll(likeRe)) {
+    const objName = m[1].toUpperCase();
+    if (objName.startsWith('Z') || objName.startsWith('Y')) {
+      add({ name: objName, type: 'DTEL', category: 'type', autoInclude: false });
     }
   }
 

@@ -3,6 +3,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import PQueue from 'p-queue';
 import { config } from '../config';
 import { SAPObjectInfo, ActivationResult, MCPToolResult } from '../types/mcp.types';
+import logger from '../lib/logger';
+import { SAPConnectionError, MCPError } from '../errors';
 
 const MAX_RECONNECT_ATTEMPTS = 3;
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -30,7 +32,7 @@ class MCPClientService {
   }
 
   async connect(): Promise<void> {
-    console.log('[MCP] Connecting to MCP server:', config.mcp.serverPath);
+    logger.info('[MCP] Connecting to MCP server', { serverPath: config.mcp.serverPath });
 
     const env: Record<string, string> = {
       SAP_URL: config.sap.url,
@@ -60,21 +62,29 @@ class MCPClientService {
     );
 
     this.transport.onclose = () => {
-      console.warn('[MCP] Transport closed unexpectedly');
+      logger.warn('[MCP] Transport closed unexpectedly');
       this.isConnected = false;
       this.scheduleReconnect();
     };
 
-    await this.client.connect(this.transport);
-    this.isConnected = true;
-    this.reconnectAttempts = 0;
-    console.log('[MCP] Connected to MCP server');
+    try {
+      await this.client.connect(this.transport);
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
+      logger.info('[MCP] Connected to MCP server');
 
-    // Establish SAP session
-    await this.callToolDirect('login', {});
-    console.log('[MCP] SAP login successful');
+      // Establish SAP session
+      await this.callToolDirect('login', {});
+      logger.info('[MCP] SAP login successful', { user: config.sap.user, client: config.sap.client });
 
-    this.startHeartbeat();
+      this.startHeartbeat();
+    } catch (error) {
+      logger.error('[MCP] Connection failed', { error: error instanceof Error ? error.message : String(error) });
+      throw new SAPConnectionError('Failed to connect to SAP system', {
+        url: config.sap.url,
+        user: config.sap.user,
+      });
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -82,28 +92,41 @@ class MCPClientService {
     if (this.isConnected && this.client) {
       try {
         await this.callToolDirect('logout', {});
-      } catch {
-        // Ignore logout errors during shutdown
+        logger.info('[MCP] Logged out from SAP');
+      } catch (err) {
+        logger.warn('[MCP] Logout failed during shutdown', { error: err instanceof Error ? err.message : String(err) });
       }
       await this.client.close();
     }
     this.isConnected = false;
-    console.log('[MCP] Disconnected');
+    logger.info('[MCP] Disconnected');
   }
 
   private async scheduleReconnect(): Promise<void> {
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('[MCP] Max reconnect attempts reached');
+      logger.error('[MCP] Max reconnect attempts reached');
       return;
     }
+
+    // Clear old heartbeat timer
+    this.stopHeartbeat();
+
     const delay = Math.pow(2, this.reconnectAttempts) * 1000;
     this.reconnectAttempts++;
-    console.log(`[MCP] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    logger.info(`[MCP] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
     await new Promise((r) => setTimeout(r, delay));
+
     try {
+      // Reset queue state
+      this.queue.clear();
       await this.connect();
+      logger.info('[MCP] Reconnection successful');
     } catch (err) {
-      console.error('[MCP] Reconnect failed:', err);
+      logger.error('[MCP] Reconnect failed', { 
+        attempt: this.reconnectAttempts,
+        error: err instanceof Error ? err.message : String(err) 
+      });
     }
   }
 
@@ -118,8 +141,9 @@ class MCPClientService {
       await this.callToolDirect('healthcheck', {});
       this.lastHeartbeatOk = true;
       this.lastHeartbeatTime = new Date();
+      logger.debug('[MCP] Heartbeat OK');
     } catch (err) {
-      console.warn('[MCP] Heartbeat failed:', err);
+      logger.warn('[MCP] Heartbeat failed', { error: err instanceof Error ? err.message : String(err) });
       this.lastHeartbeatOk = false;
       this.lastHeartbeatTime = new Date();
     }
@@ -133,9 +157,10 @@ class MCPClientService {
       this.lastHeartbeatOk = true;
       this.lastHeartbeatTime = new Date();
       return true;
-    } catch {
+    } catch (err) {
       this.lastHeartbeatOk = false;
       this.lastHeartbeatTime = new Date();
+      logger.debug('[MCP] Live check failed', { error: err instanceof Error ? err.message : String(err) });
       return false;
     }
   }
@@ -149,22 +174,31 @@ class MCPClientService {
 
   // Direct call without queue (used internally for login/logout/heartbeat)
   private async callToolDirect(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult> {
-    if (!this.client) throw new Error('MCP client not initialized');
+    if (!this.client) throw new MCPError('MCP client not initialized');
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`MCP tool '${toolName}' timed out`)), TOOL_TIMEOUT_MS)
+      setTimeout(() => reject(new MCPError(`MCP tool '${toolName}' timed out after ${TOOL_TIMEOUT_MS}ms`)), TOOL_TIMEOUT_MS)
     );
 
-    const callPromise = this.client.callTool({ name: toolName, arguments: args });
-    const result = await Promise.race([callPromise, timeoutPromise]);
-    return result as MCPToolResult;
+    try {
+      const callPromise = this.client.callTool({ name: toolName, arguments: args });
+      const result = await Promise.race([callPromise, timeoutPromise]);
+      logger.debug(`[MCP] Tool call success: ${toolName}`);
+      return result as MCPToolResult;
+    } catch (error) {
+      logger.error(`[MCP] Tool call failed: ${toolName}`, { 
+        error: error instanceof Error ? error.message : String(error),
+        args 
+      });
+      throw error;
+    }
   }
 
   // Public queued call
   async callTool(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult> {
     return this.queue.add(async () => {
       if (!this.isConnected) {
-        throw new Error('MCP client is not connected');
+        throw new SAPConnectionError('MCP client is not connected to SAP');
       }
       return this.callToolDirect(toolName, args);
     }) as Promise<MCPToolResult>;
@@ -173,7 +207,7 @@ class MCPClientService {
   private extractText(result: MCPToolResult): string {
     if (result.isError) {
       const errText = result.content.map((c) => c.text || '').join('');
-      throw new Error(`MCP tool error: ${errText}`);
+      throw new MCPError(`MCP tool error: ${errText}`);
     }
     const text = result.content.map((c) => c.text || '').join('');
 
@@ -199,7 +233,7 @@ class MCPClientService {
     const result = await this.callTool('searchObject', args);
     const text = this.extractText(result);
 
-    console.log('[MCP] searchObject raw response:', text.substring(0, 1000));
+    logger.debug('[MCP] searchObject response received', { query, objType });
 
     try {
       const parsed = JSON.parse(text);
@@ -212,8 +246,7 @@ class MCPClientService {
           ? parsed.results
           : (parsed.objects || []);
 
-      console.log('[MCP] searchObject items count:', items.length);
-      if (items.length > 0) console.log('[MCP] searchObject first item keys:', Object.keys(items[0] as object));
+      logger.debug('[MCP] searchObject items count:', { count: items.length });
 
       for (const item of items) {
         const i = item as Record<string, string>;
@@ -227,7 +260,10 @@ class MCPClientService {
       }
       return objects.filter(o => o.name);
     } catch (err) {
-      console.error('[MCP] searchObject parse error:', err, 'raw text:', text.substring(0, 500));
+      logger.error('[MCP] searchObject parse error', { 
+        error: err instanceof Error ? err.message : String(err),
+        textPreview: text.substring(0, 500) 
+      });
       return [];
     }
   }
@@ -281,10 +317,12 @@ class MCPClientService {
     const args: Record<string, unknown> = { objectSourceUrl: sourceUrl, source, lockHandle };
     if (transport) args.transport = transport;
     await this.callTool('setObjectSource', args);
+    logger.info('[MCP] Source code updated', { sourceUrl, transport });
   }
 
   async unLock(objectUrl: string, lockHandle: string): Promise<void> {
     await this.callTool('unLock', { objectUrl, lockHandle });
+    logger.debug('[MCP] Object unlocked', { objectUrl });
   }
 
   async activateByName(objectName: string, objectUrl: string): Promise<ActivationResult> {

@@ -5,12 +5,14 @@ import {
   generateCode,
   generateFSFromMeeting,
 } from '../controllers/document.controller';
+import { llmRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
-router.post('/ts/stream', generateTS);
-router.post('/fs/stream', generateFS);
-router.post('/code/stream', generateCode);
-router.post('/fs-from-meeting/stream', generateFSFromMeeting);
+// Apply LLM rate limiting to all document generation endpoints
+router.post('/ts/stream', llmRateLimiter, generateTS);
+router.post('/fs/stream', llmRateLimiter, generateFS);
+router.post('/code/stream', llmRateLimiter, generateCode);
+router.post('/fs-from-meeting/stream', llmRateLimiter, generateFSFromMeeting);
 
 export default router;
