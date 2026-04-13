@@ -1,16 +1,22 @@
 # Dependencies
 node_modules/
 package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+*.js.map
 
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# Build output
-dist/
-build/
-*.js.map
+# SAP Configs (contains sensitive data)
+backend/src/config/sap-configs.json
 
 # IDE
 .vscode/
@@ -25,13 +31,13 @@ Thumbs.db
 desktop.ini
 
 # Logs
-*.log
 logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Test coverage
+# Testing
 coverage/
 .nyc_output/
 
@@ -39,8 +45,3 @@ coverage/
 tmp/
 temp/
 *.tmp
-
-# SAP AI CODING specific
-backend/dist/
-frontend/dist/
-mcp-abap-abap-adt-api/dist/

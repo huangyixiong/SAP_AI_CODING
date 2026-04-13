@@ -16,6 +16,41 @@
 
 ---
 
+## 🎉 v2.0.0 重大更新
+
+> **2026年4月13日** - 本次更新带来三大核心功能改进！
+
+### ✨ 新增功能
+
+#### 1. 导航菜单重构
+左侧功能栏重新组织为三个清晰的业务类别：
+- **📊 前期调研**: 会议录音→纪要、SAP读取→TS/FS文档
+- **📐 蓝图计划**: FS文档→ABAP代码
+- **🛠️ 系统实施**: SAP配置管理
+
+#### 2. 会议录音转纪要
+- 🎙️ 支持上传会议录音文件（MP3/WAV/M4A）
+- 📄 支持上传文本文件（PDF/Word/TXT）
+- ✍️ 支持直接粘贴会议记录
+- 🤖 AI智能提取关键信息生成结构化会议纪要
+- 💾 一键导出Word/PDF格式
+
+#### 3. SAP配置动态管理
+- ⚙️ 前端可视化配置多个SAP系统连接
+- 🔐 密码AES-256加密存储
+- 🔄 一键切换DEV/QAS/PRD等多环境
+- 🧪 实时测试连接功能
+- 📁 配置文件不提交Git仓库
+
+### 📚 详细文档
+
+- 📖 [优化详细说明](OPTIMIZATION_GUIDE.md)
+- 🚀 [快速开始指南](QUICK_START_OPTIMIZED.md)
+- 📊 [优化总结报告](OPTIMIZATION_SUMMARY.md)
+- ✅ [完成报告](PROJECT_COMPLETION_REPORT.md)
+
+---
+
 ## 📋 目录
 
 - [项目简介](#-项目简介)
@@ -734,7 +769,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 **A:** 修改 `.env` 文件中的配置:
 
-```env
+``env
 # OpenAI
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4

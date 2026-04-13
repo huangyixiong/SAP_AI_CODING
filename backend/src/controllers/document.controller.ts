@@ -232,3 +232,47 @@ export async function generateFSFromMeeting(req: Request, res: Response): Promis
     if (!res.writableEnded) res.end();
   }
 }
+
+export async function generateMeetingSummary(req: Request, res: Response): Promise<void> {
+  initSSE(res);
+
+  // Support both JSON body and multipart form data
+  let meetingText = '';
+  
+  if (req.is('multipart/form-data')) {
+    // Handle file uploads
+    meetingText = req.body.text || '';
+    // Files would be in req.files - handled by middleware
+  } else {
+    const schema = z.object({
+      text: z.string().min(1),
+    });
+
+    const parseResult = schema.safeParse(req.body);
+    if (!parseResult.success) {
+      sendSSE(res, { type: 'error', message: '参数错误：' + parseResult.error.message });
+      res.end();
+      return;
+    }
+    meetingText = parseResult.data.text;
+  }
+
+  const abortController = makeAbortController(req, res);
+
+  try {
+    const docService = new DocumentService();
+    for await (const event of docService.generateMeetingSummary({
+      meetingText,
+      signal: abortController.signal,
+    })) {
+      if (res.writableEnded) break;
+      sendSSE(res, event);
+    }
+  } catch (err) {
+    if (!res.writableEnded) {
+      sendSSE(res, { type: 'error', message: (err as Error).message });
+    }
+  } finally {
+    if (!res.writableEnded) res.end();
+  }
+}

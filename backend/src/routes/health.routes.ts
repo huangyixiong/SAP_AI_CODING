@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import MCPClientService from '../services/MCPClientService';
+import SAPConfigService from '../services/SAPConfigService';
 import { config } from '../config';
 
 const router = Router();
@@ -16,22 +17,31 @@ function parseSAPHost(url: string): string {
 
 router.get('/', async (_req: Request, res: Response) => {
   const mcpService = MCPClientService.getInstance();
+  const configService = SAPConfigService.getInstance();
   const alive = await mcpService.liveCheck();
   const { time } = mcpService.getLastHeartbeat();
+
+  // Try to get active config first
+  const activeConfig = configService.getActiveConfig();
+  
+  const sapUrl = activeConfig?.url || config.sap.url;
+  const sapUser = activeConfig?.user || config.sap.user;
+  const sapClient = activeConfig?.client || config.sap.client;
+  const sapLanguage = activeConfig?.language || config.sap.language;
 
   res.status(200).json({
     status: 'ok',
     sap: {
       connected: alive,
-      url: config.sap.url,
-      host: parseSAPHost(config.sap.url),
-      user: config.sap.user,
-      client: config.sap.client,
-      language: config.sap.language,
+      url: sapUrl,
+      host: parseSAPHost(sapUrl),
+      user: sapUser,
+      client: sapClient,
+      language: sapLanguage,
       lastCheck: time?.toISOString() ?? null,
       message: alive
         ? undefined
-        : '无法连接 SAP，请检查 SAP_URL / SAP_USER / SAP_PASSWORD 配置',
+        : '无法连接 SAP，请检查 SAP 配置',
     },
     claude: { available: true },
     timestamp: new Date().toISOString(),

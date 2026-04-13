@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import PQueue from 'p-queue';
 import { config } from '../config';
+import SAPConfigService from './SAPConfigService';
 import { SAPObjectInfo, ActivationResult, MCPToolResult } from '../types/mcp.types';
 import logger from '../lib/logger';
 import { SAPConnectionError, MCPError } from '../errors';
@@ -31,15 +32,22 @@ class MCPClientService {
     return MCPClientService.instance;
   }
 
-  async connect(): Promise<void> {
-    logger.info('[MCP] Connecting to MCP server', { serverPath: config.mcp.serverPath });
+  async connect(sapConfig?: { url: string; user: string; password: string; client: string; language: string }): Promise<void> {
+    // Use provided config or fall back to environment config
+    const sapUrl = sapConfig?.url || config.sap.url;
+    const sapUser = sapConfig?.user || config.sap.user;
+    const sapPassword = sapConfig?.password || config.sap.password;
+    const sapClient = sapConfig?.client || config.sap.client;
+    const sapLanguage = sapConfig?.language || config.sap.language;
+
+    logger.info('[MCP] Connecting to MCP server', { serverPath: config.mcp.serverPath, sapUrl });
 
     const env: Record<string, string> = {
-      SAP_URL: config.sap.url,
-      SAP_USER: config.sap.user,
-      SAP_PASSWORD: config.sap.password,
-      SAP_CLIENT: config.sap.client,
-      SAP_LANGUAGE: config.sap.language,
+      SAP_URL: sapUrl,
+      SAP_USER: sapUser,
+      SAP_PASSWORD: sapPassword,
+      SAP_CLIENT: sapClient,
+      SAP_LANGUAGE: sapLanguage,
       NODE_TLS_REJECT_UNAUTHORIZED: config.sap.rejectUnauthorized ? '1' : '0',
     };
 
@@ -75,14 +83,14 @@ class MCPClientService {
 
       // Establish SAP session
       await this.callToolDirect('login', {});
-      logger.info('[MCP] SAP login successful', { user: config.sap.user, client: config.sap.client });
+      logger.info('[MCP] SAP login successful', { user: sapUser, client: sapClient });
 
       this.startHeartbeat();
     } catch (error) {
       logger.error('[MCP] Connection failed', { error: error instanceof Error ? error.message : String(error) });
       throw new SAPConnectionError('Failed to connect to SAP system', {
-        url: config.sap.url,
-        user: config.sap.user,
+        url: sapUrl,
+        user: sapUser,
       });
     }
   }
@@ -120,7 +128,24 @@ class MCPClientService {
     try {
       // Reset queue state
       this.queue.clear();
-      await this.connect();
+      
+      // Try to get active config
+      const configService = SAPConfigService.getInstance();
+      const activeConfig = configService.getActiveConfig();
+      
+      if (activeConfig) {
+        const configServiceInstance = configService;
+        await this.connect({
+          url: activeConfig.url,
+          user: activeConfig.user,
+          password: configServiceInstance.decrypt(activeConfig.encryptedPassword),
+          client: activeConfig.client,
+          language: activeConfig.language,
+        });
+      } else {
+        await this.connect();
+      }
+      
       logger.info('[MCP] Reconnection successful');
     } catch (err) {
       logger.error('[MCP] Reconnect failed', { 
@@ -348,7 +373,10 @@ class MCPClientService {
   }
 
   getSAPUrl(): string {
-    return config.sap.url;
+    // Try to get from active config first
+    const configService = SAPConfigService.getInstance();
+    const activeConfig = configService.getActiveConfig();
+    return activeConfig?.url || config.sap.url;
   }
 }
 
