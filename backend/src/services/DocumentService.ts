@@ -22,6 +22,7 @@ export interface GenerateFromSAPOptions {
   documentType: 'TS' | 'FS';
   signal?: AbortSignal;
   additionalObjects?: AdditionalObject[];
+  templateContent?: string;
 }
 
 export interface GenerateCodeOptions {
@@ -57,7 +58,7 @@ class DocumentService {
     type: string;
     [key: string]: unknown;
   }> {
-    const { programName, objectType, documentType, signal, additionalObjects } = options;
+    const { programName, objectType, documentType, signal, additionalObjects, templateContent } = options;
 
     logger.info('[DocumentService] Starting document generation', { 
       programName, 
@@ -161,7 +162,10 @@ class DocumentService {
       }
 
       // Step 4: Stream LLM generation
-      const systemPrompt = documentType === 'TS' ? TS_SYSTEM_PROMPT : FS_SYSTEM_PROMPT;
+      let systemPrompt = documentType === 'TS' ? TS_SYSTEM_PROMPT : FS_SYSTEM_PROMPT;
+      if (templateContent) {
+        systemPrompt += `\n\n## 模板格式要求（严格遵守）\n以下是用户提供的 Word 模板内容，请严格按照此模板的章节结构、标题层级、表格格式生成文档，不要增减章节：\n\n${templateContent.slice(0, 6000)}`;
+      }
       const userMessage =
         documentType === 'TS'
           ? buildTSUserMessage(obj.name, obj.type, combinedSource)

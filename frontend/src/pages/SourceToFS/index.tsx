@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { Card, Button, Alert, Steps, Space, Typography } from 'antd';
-import { ThunderboltOutlined, StopOutlined } from '@ant-design/icons';
+import { Card, Button, Alert, Steps, Space, Typography, Upload } from 'antd';
+import { ThunderboltOutlined, StopOutlined, UploadOutlined } from '@ant-design/icons';
+import mammoth from 'mammoth';
 import ObjectSearchInput from '../../components/sap/ObjectSearchInput';
 import SourceAnalysisPanel from '../../components/sap/SourceAnalysis';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
@@ -17,6 +18,8 @@ export default function SourceToFS() {
   const [statusMsg, setStatusMsg] = useState('');
   const contentRef = useRef('');
   const [displayContent, setDisplayContent] = useState('');
+  const [templateContent, setTemplateContent] = useState('');
+  const [templateFileName, setTemplateFileName] = useState('');
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/fs/stream',
@@ -57,6 +60,7 @@ export default function SourceToFS() {
         type: o.type,
         objectUrl: o.objectUrl,
       })),
+      ...(templateContent ? { templateContent } : {}),
     });
   };
 
@@ -123,6 +127,39 @@ export default function SourceToFS() {
             </Space>
           }
         >
+          {/* Template upload */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Upload
+              accept=".docx"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                  const arrayBuffer = e.target?.result as ArrayBuffer;
+                  const result = await mammoth.extractRawText({ arrayBuffer });
+                  setTemplateContent(result.value);
+                  setTemplateFileName(file.name);
+                };
+                reader.readAsArrayBuffer(file);
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />} size="small">
+                {templateFileName || '上传 Word 模板（可选）'}
+              </Button>
+            </Upload>
+            {templateFileName && (
+              <Button
+                type="link"
+                size="small"
+                danger
+                onClick={() => { setTemplateContent(''); setTemplateFileName(''); }}
+              >
+                移除
+              </Button>
+            )}
+          </div>
+
           {status !== 'idle' && currentStep >= 0 && (
             <Steps
               size="small"
@@ -161,6 +198,14 @@ export default function SourceToFS() {
             content={displayContent}
             style={{ maxHeight: 600, overflowY: 'auto', padding: 8 }}
           />
+          {status === 'done' && (
+            <Alert
+              type="warning"
+              showIcon
+              message="本文档由 AI 自动生成，内容仅供参考，请务必人工复核后使用"
+              style={{ marginTop: 12 }}
+            />
+          )}
         </Card>
       )}
     </Space>

@@ -50,12 +50,25 @@ export async function analyzeObject(req: Request, res: Response, next: NextFunct
     const source = await mcpService.getObjectSource(structure.sourceUrl);
     const rawRelated = analyzeABAPSource(source);
 
-    // Return detected objects immediately — objectUrl resolution is deferred to generation time
-    const relatedObjects = rawRelated.map((obj) => ({
-      ...obj,
-      objectUrl: undefined,
-      description: '',
-    }));
+    // Construct SAP ADT objectUrl based on known type patterns
+    const ADT_URL_MAP: Record<string, string> = {
+      'PROG/I': '/sap/bc/adt/programs/includes',
+      'PROG/P': '/sap/bc/adt/programs/programs',
+      'FUNC':   '/sap/bc/adt/functions/modules',
+      'FUGR':   '/sap/bc/adt/function-groups',
+      'CLAS':   '/sap/bc/adt/oo/classes',
+      'INTF':   '/sap/bc/adt/oo/interfaces',
+      'TABL':   '/sap/bc/adt/ddic/tables',
+      'TABL/DT':'/sap/bc/adt/ddic/tables',
+      'DTEL':   '/sap/bc/adt/ddic/dataelements',
+      'DOMA':   '/sap/bc/adt/ddic/domains',
+    };
+
+    const relatedObjects = rawRelated.map((obj) => {
+      const basePath = ADT_URL_MAP[obj.type];
+      const resolvedUrl = basePath ? `${basePath}/${obj.name.toLowerCase()}` : undefined;
+      return { ...obj, objectUrl: resolvedUrl, description: '' };
+    });
 
     console.log('[SAP] analyzeObject found', relatedObjects.length, 'related objects');
 
