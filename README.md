@@ -56,13 +56,24 @@ cd ..
 
 4. **启动服务**
 
-使用一键启动脚本（推荐）：
+在项目根目录执行：
 ```bash
-# Windows PowerShell
-./start.ps1
+npm run dev
+```
 
-# 或分别启动
+这将自动并行启动MCP服务器、后端服务和前端应用。
+
+> 💡 **提示**: 首次运行会自动安装所有依赖。如需分别启动，可参考下方手动启动方式。
+
+**手动启动（可选）**：
+```bash
+# 终端1 - MCP服务器
+cd mcp-abap-abap-adt-api && npm install && npm run build
+
+# 终端2 - 后端服务
 cd backend && npm install && npm run dev
+
+# 终端3 - 前端应用
 cd frontend && npm install && npm run dev
 ```
 
