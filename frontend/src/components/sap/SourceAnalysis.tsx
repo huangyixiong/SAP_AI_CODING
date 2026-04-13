@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Checkbox, Collapse, Spin, Tag, Typography, Empty, Divider, Modal, Button
+  Alert, Checkbox, Collapse, Spin, Tag, Typography, Empty, Divider
 } from 'antd';
 import {
-  CodeOutlined, LinkOutlined, FunctionOutlined, TableOutlined, ApiOutlined, EyeOutlined
+  CodeOutlined, LinkOutlined, FunctionOutlined, TableOutlined, ApiOutlined
 } from '@ant-design/icons';
-import { getSAPObjectSource } from '../../api/sap.api';
-import { SAPObject, SourceAnalysis as SourceAnalysisData, RelatedObject } from '../../types';
 import { analyzeObjectSource } from '../../api/sap.api';
+import { SAPObject, SourceAnalysis as SourceAnalysisData, RelatedObject } from '../../types';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const CATEGORY_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
   include:  { icon: <CodeOutlined />,     label: 'Include',   color: '#1890ff' },
