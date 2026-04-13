@@ -203,7 +203,7 @@ class DocumentService {
       if (error instanceof SAPConnectionError) {
         yield { type: 'error', message: 'SAP 连接失败,请检查配置' };
       } else if (error instanceof LLMError) {
-        yield { type: 'error', message: 'AI 服务调用失败,请稍后重试' };
+        yield { type: 'error', message: `AI 服务调用失败：${(error as Error).message}` };
       } else {
         yield { type: 'error', message: `生成失败：${(error as Error).message}` };
       }
