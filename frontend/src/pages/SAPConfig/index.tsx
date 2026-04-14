@@ -390,7 +390,10 @@ export default function SAPConfig() {
             name="url"
             rules={[
               { required: true, message: '请输入SAP URL' },
-              { pattern: /^.+:\d+$/, message: 'URL必须包含端口号，例如：http://192.168.20.41:8000' }
+              { 
+                pattern: /^https?:\/\/.+:\/?\d+(\/.*)?$/, 
+                message: 'URL必须包含端口号，例如：http://192.168.20.41:8000' 
+              }
             ]}
             extra={<Text type="secondary" style={{ fontSize: EYTypography.sizes.xs }}>必须包含端口号，例如：http://192.168.20.41:8000</Text>}
           >

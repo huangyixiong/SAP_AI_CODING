@@ -10,7 +10,9 @@ const mcpService = MCPClientService.getInstance();
 // Validation schemas
 const createConfigSchema = z.object({
   name: z.string().min(1, '配置名称不能为空'),
-  url: z.string().url('URL格式不正确').regex(/^.+:\/\d+$/, 'URL必须包含端口号'),
+  url: z.string()
+    .url('URL格式不正确')
+    .regex(/^https?:\/\/.+:\/?\d+(\/.*)?$/, 'URL必须包含端口号，例如：http://192.168.20.41:8000'),
   user: z.string().min(1, '用户名不能为空'),
   password: z.string().min(1, '密码不能为空'),
   client: z.string().min(1, 'Client不能为空'),
@@ -19,7 +21,10 @@ const createConfigSchema = z.object({
 
 const updateConfigSchema = z.object({
   name: z.string().min(1).optional(),
-  url: z.string().url().regex(/^.+:\/\d+$/).optional(),
+  url: z.string()
+    .url()
+    .regex(/^https?:\/\/.+:\/?\d+(\/.*)?$/)
+    .optional(),
   user: z.string().min(1).optional(),
   password: z.string().min(1).optional(),
   client: z.string().min(1).optional(),
