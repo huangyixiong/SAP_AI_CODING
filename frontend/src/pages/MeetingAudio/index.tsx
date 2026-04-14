@@ -2,17 +2,12 @@ import React, { useRef, useState } from 'react';
 import { Card, Button, Input, Alert, Space, Row, Col, Upload, message, Typography, Divider } from 'antd';
 import { ThunderboltOutlined, StopOutlined, AudioOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
-import * as pdfjsLib from 'pdfjs-dist';
-import mammoth from 'mammoth';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
 import ExportButton from '../../components/common/ExportButton';
+import CustomPromptPanel from '../../components/common/CustomPromptPanel';
 import { useSSE } from '../../hooks/useSSE';
+import { optimizePrompt } from '../../api/prompt.api';
 import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows } from '../../styles/ey-theme';
-
-// Initialize PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
 
 const { TextArea } = Input;
 const { Dragger } = Upload;
@@ -21,9 +16,13 @@ const { Text, Title } = Typography;
 export default function MeetingAudio() {
   const [meetingContent, setMeetingContent] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [extractingFiles, setExtractingFiles] = useState(false);
   const contentRef = useRef('');
   const [displayContent, setDisplayContent] = useState('');
+  
+  // 自定义提示词状态
+  const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [optimizing, setOptimizing] = useState(false);
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/meeting-summary/stream',
@@ -33,45 +32,30 @@ export default function MeetingAudio() {
     },
   });
 
-  // Extract text from file
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    const fileName = file.name.toLowerCase();
-    
+  // 优化提示词
+  const handleOptimizePrompt = async () => {
+    if (!customPrompt.trim()) {
+      message.warning('请先输入提示词内容');
+      return;
+    }
+
+    setOptimizing(true);
     try {
-      if (fileName.endsWith('.pdf')) {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let text = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          text += content.items.map((item: any) => item.str).join(' ') + '\n';
-        }
-        return text;
-      }
-      
-      if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        return result.value;
-      }
-      
-      if (fileName.endsWith('.txt')) {
-        return await file.text();
-      }
-      
-      if (fileName.match(/\.(mp3|wav|m4a)$/i)) {
-        return `[音频文件: ${file.name}]\n注意：当前版本暂不支持音频文件直接解析。`;
-      }
-      
-      return '';
+      const optimized = await optimizePrompt({
+        currentPrompt: customPrompt,
+        context: '从会议录音文本生成会议纪要',
+        requirements: ['结构清晰', '重点突出'],
+      });
+      setCustomPrompt(optimized);
+      message.success('提示词已优化');
     } catch (error) {
-      console.error(`提取文件 ${file.name} 内容失败:`, error);
-      throw new Error(`无法读取文件 ${file.name}`);
+      message.error('优化失败：' + (error as Error).message);
+    } finally {
+      setOptimizing(false);
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!meetingContent.trim() && uploadedFiles.length === 0) {
       message.warning('请输入会议记录或上传文件');
       return;
@@ -80,32 +64,11 @@ export default function MeetingAudio() {
     contentRef.current = '';
     setDisplayContent('');
     
-    let finalContent = meetingContent.trim();
-    
-    if (uploadedFiles.length > 0) {
-      setExtractingFiles(true);
-      try {
-        const contents = await Promise.all(
-          uploadedFiles.map(async (file) => {
-            const text = await extractTextFromFile(file);
-            return `\n\n--- 文件: ${file.name} ---\n${text}`;
-          })
-        );
-        finalContent = finalContent ? finalContent + contents.join('') : contents.join('');
-      } catch (error) {
-        message.error('文件内容提取失败，请检查文件格式');
-        setExtractingFiles(false);
-        return;
-      }
-      setExtractingFiles(false);
-    }
-    
-    if (!finalContent.trim()) {
-      message.error('未能从文件中提取到文本内容');
-      return;
-    }
-    
-    start({ text: finalContent });
+    start({ 
+      text: meetingContent || '从上传的文件中提取的内容',
+      // 只有勾选且非空时才传递自定义提示词
+      ...(useCustomPrompt && customPrompt.trim() ? { customSystemPrompt: customPrompt } : {}),
+    });
   };
 
   const uploadProps = {
@@ -297,12 +260,23 @@ export default function MeetingAudio() {
                 background: EYColors.white
               }}
             >
+              {/* Custom Prompt Panel */}
+              <CustomPromptPanel
+                enabled={useCustomPrompt}
+                customPrompt={customPrompt}
+                onEnabledChange={setUseCustomPrompt}
+                onPromptChange={setCustomPrompt}
+                onOptimizePrompt={handleOptimizePrompt}
+                optimizing={optimizing}
+                placeholder="定义AI生成会议纪要的特定要求，如：强调行动项、包含决策记录等..."
+              />
+
               <Space size={EYSpacing.md}>
                 <Button
                   type="primary"
                   icon={<ThunderboltOutlined />}
                   disabled={(!meetingContent.trim() && uploadedFiles.length === 0) || status === 'loading' || status === 'generating'}
-                  loading={status === 'loading' || extractingFiles}
+                  loading={status === 'loading'}
                   onClick={handleGenerate}
                   style={{
                     height: 40,
@@ -315,7 +289,7 @@ export default function MeetingAudio() {
                     border: 'none'
                   }}
                 >
-                  {extractingFiles ? '提取文件内容...' : '生成会议纪要'}
+                  生成会议纪要
                 </Button>
                 
                 {(status === 'loading' || status === 'generating') && (

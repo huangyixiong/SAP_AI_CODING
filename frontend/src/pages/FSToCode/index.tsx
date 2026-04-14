@@ -5,7 +5,9 @@ import {
 import { ThunderboltOutlined, StopOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
 import ExportButton from '../../components/common/ExportButton';
+import CustomPromptPanel from '../../components/common/CustomPromptPanel';
 import { useSSE } from '../../hooks/useSSE';
+import { optimizePrompt } from '../../api/prompt.api';
 import { writeBackToSAP } from '../../api/sap.api';
 
 const { TextArea } = Input;
@@ -22,6 +24,11 @@ export default function FSToCode() {
   const [displayCode, setDisplayCode] = useState('');
   const [writeBackStatus, setWriteBackStatus] = useState<WriteBackStatus>('idle');
   const [writeBackError, setWriteBackError] = useState('');
+  
+  // 自定义提示词状态
+  const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [optimizing, setOptimizing] = useState(false);
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/code/stream',
@@ -31,12 +38,40 @@ export default function FSToCode() {
     },
   });
 
+  // 优化提示词
+  const handleOptimizePrompt = async () => {
+    if (!customPrompt.trim()) {
+      message.warning('请先输入提示词内容');
+      return;
+    }
+
+    setOptimizing(true);
+    try {
+      const optimized = await optimizePrompt({
+        currentPrompt: customPrompt,
+        context: '从功能规格书(FS)生成ABAP代码',
+        requirements: ['强调编码规范', '包含错误处理', '性能优化'],
+      });
+      setCustomPrompt(optimized);
+      message.success('提示词已优化');
+    } catch (error) {
+      message.error('优化失败：' + (error as Error).message);
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   const handleGenerate = () => {
     if (!fsContent.trim()) return;
     codeRef.current = '';
     setDisplayCode('');
     setWriteBackStatus('idle');
-    start({ fsContent, targetProgramName: targetProgramName || undefined });
+    start({ 
+      fsContent, 
+      targetProgramName: targetProgramName || undefined,
+      // 只有勾选且非空时才传递自定义提示词
+      ...(useCustomPrompt && customPrompt.trim() ? { customSystemPrompt: customPrompt } : {}),
+    });
   };
 
   const handleWriteBack = async () => {
@@ -89,6 +124,20 @@ export default function FSToCode() {
               onChange={(e) => setFsContent(e.target.value)}
               style={{ fontFamily: 'Consolas, monospace', fontSize: 13 }}
             />
+            
+            {/* Custom Prompt Panel */}
+            <div style={{ marginTop: 12 }}>
+              <CustomPromptPanel
+                enabled={useCustomPrompt}
+                customPrompt={customPrompt}
+                onEnabledChange={setUseCustomPrompt}
+                onPromptChange={setCustomPrompt}
+                onOptimizePrompt={handleOptimizePrompt}
+                optimizing={optimizing}
+                placeholder="定义AI生成ABAP代码的特定要求，如：使用特定的命名规范、包含详细的注释等..."
+              />
+            </div>
+
             <Button
               type="primary"
               icon={<ThunderboltOutlined />}

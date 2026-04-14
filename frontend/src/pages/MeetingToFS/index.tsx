@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { Card, Button, Input, Alert, Space, Row, Col, Typography, Divider } from 'antd';
+import { Card, Button, Input, Alert, Space, Row, Col, Typography, Divider, message } from 'antd';
 import { ThunderboltOutlined, StopOutlined, TeamOutlined, FileTextOutlined } from '@ant-design/icons';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
 import ExportButton from '../../components/common/ExportButton';
+import CustomPromptPanel from '../../components/common/CustomPromptPanel';
 import { useSSE } from '../../hooks/useSSE';
+import { optimizePrompt } from '../../api/prompt.api';
 import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, EYAnimations } from '../../styles/ey-theme';
 
 const { TextArea } = Input;
@@ -14,6 +16,11 @@ export default function MeetingToFS() {
   const [projectContext, setProjectContext] = useState('');
   const contentRef = useRef('');
   const [displayContent, setDisplayContent] = useState('');
+  
+  // 自定义提示词状态
+  const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [optimizing, setOptimizing] = useState(false);
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/fs-from-meeting/stream',
@@ -23,6 +30,29 @@ export default function MeetingToFS() {
     },
   });
 
+  // 优化提示词
+  const handleOptimizePrompt = async () => {
+    if (!customPrompt.trim()) {
+      message.warning('请先输入提示词内容');
+      return;
+    }
+
+    setOptimizing(true);
+    try {
+      const optimized = await optimizePrompt({
+        currentPrompt: customPrompt,
+        context: '从会议纪要生成功能规格书(FS)',
+        requirements: ['保持业务导向', '结构清晰'],
+      });
+      setCustomPrompt(optimized);
+      message.success('提示词已优化');
+    } catch (error) {
+      message.error('优化失败：' + (error as Error).message);
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   const handleGenerate = () => {
     if (!meetingContent.trim()) return;
     contentRef.current = '';
@@ -30,6 +60,8 @@ export default function MeetingToFS() {
     start({
       meetingContent,
       projectContext: projectContext.trim() || undefined,
+      // 只有勾选且非空时才传递自定义提示词
+      ...(useCustomPrompt && customPrompt.trim() ? { customSystemPrompt: customPrompt } : {}),
     });
   };
 
@@ -160,6 +192,17 @@ export default function MeetingToFS() {
               }}
               bodyStyle={{ padding: EYSpacing.lg }}
             >
+              {/* Custom Prompt Panel */}
+              <CustomPromptPanel
+                enabled={useCustomPrompt}
+                customPrompt={customPrompt}
+                onEnabledChange={setUseCustomPrompt}
+                onPromptChange={setCustomPrompt}
+                onOptimizePrompt={handleOptimizePrompt}
+                optimizing={optimizing}
+                placeholder="定义AI从会议纪要生成FS文档的特定要求，如：强调业务流程、包含用户故事等..."
+              />
+
               <Space size={EYSpacing.md}>
                 <Button
                   type="primary"

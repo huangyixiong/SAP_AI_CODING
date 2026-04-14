@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Layout, Menu, Tooltip, Typography, Divider, ConfigProvider, Select, Button, Popconfirm, Avatar } from 'antd';
+import { Layout, Menu, Tooltip, Typography, Divider, ConfigProvider } from 'antd';
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -13,13 +13,9 @@ import {
   TranslationOutlined,
   AudioOutlined,
   SettingOutlined,
-  LogoutOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../../store/useAppStore';
-import { useLanguageStore } from '../../store/useLanguageStore';
-import { useAuthStore } from '../../store/useAuthStore';
 import { getHealthStatus } from '../../api/sap.api';
-import { locales, languageOptions } from '../../i18n/locales';
 import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, eyAntdTheme } from '../../styles/ey-theme';
 
 const { Sider, Content } = Layout;
@@ -27,68 +23,67 @@ const { Text } = Typography;
 
 type MenuItem = Required<MenuProps>['items'][number];
 
-// Function to generate menu items based on language
-const getMenuItems = (t: any): MenuItem[] => [
+const menuItems: MenuItem[] = [
   {
     key: 'research',
-    label: t.research,
+    label: '前期调研',
     type: 'group',
     children: [
       { 
         key: '/research/meeting-audio', 
         icon: <AudioOutlined />, 
-        label: t.meetingAudio 
+        label: '会议纪要智能生成' 
       },
     ],
   },
   {
     key: 'blueprint',
-    label: t.blueprint,
+    label: '蓝图计划',
     type: 'group',
     children: [
       { 
         key: '/blueprint/meeting-fs', 
         icon: <TeamOutlined />, 
-        label: t.meetingToFS 
+        label: '需求转功能规格' 
       },
     ],
   },
   {
     key: 'implementation',
-    label: t.implementation,
+    label: '系统实施',
     type: 'group',
     children: [
       { 
         key: '/implementation/sap-ts', 
         icon: <FileTextOutlined />, 
-        label: t.sapToTS 
+        label: '代码反向工程(TS)' 
       },
       { 
         key: '/implementation/sap-fs', 
         icon: <FormOutlined />, 
-        label: t.sapToFS 
+        label: '代码反向工程(FS)' 
       },
       { 
         key: '/implementation/fs-code', 
         icon: <CodeOutlined />, 
-        label: t.fsToCode 
+        label: '规格驱动代码生成' 
       },
       { 
         key: '/implementation/config', 
         icon: <SettingOutlined />, 
-        label: t.configManagement 
+        label: 'SAP配置管理' 
       },
     ],
   },
-];
+] as MenuItem[];
 
 const PAGE_LABELS: Record<string, string> = {
-  '/research/meeting-audio': 'pageMeetingAudio',
-  '/blueprint/meeting-fs': 'pageMeetingToFS',
-  '/implementation/sap-ts': 'pageSapToTS',
-  '/implementation/sap-fs': 'pageSapToFS',
-  '/implementation/fs-code': 'pageFsToCode',
-  '/implementation/config': 'pageConfig',
+  '/research/meeting-audio': '会议纪要智能生成',
+  '/blueprint/meeting-fs': '需求转功能规格说明书',
+  '/implementation/sap-ts': '代码反向工程 - 技术规格书',
+  '/implementation/sap-fs': '代码反向工程 - 功能规格书',
+  '/implementation/fs-code': '规格驱动代码生成',
+  '/implementation/config': 'SAP配置管理',
 };
 
 interface InfoRowProps {
@@ -153,16 +148,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { sap, setSAPInfo } = useAppStore();
-  const { language, setLanguage } = useLanguageStore();
-  const { user, logout } = useAuthStore();
-  
-  // Get translations
-  const t = locales[language];
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   useEffect(() => {
     const check = () => {
@@ -188,11 +173,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   // Get the current path for highlighting
   const currentPath = location.pathname;
-  const pageLabelKey = PAGE_LABELS[currentPath];
-  const pageLabel = pageLabelKey ? t[pageLabelKey as keyof typeof t] : t.appTitle;
-  
-  // Generate menu items with current language
-  const menuItems = getMenuItems(t);
+  const pageLabel = PAGE_LABELS[currentPath] ?? 'AI Assistant';
 
   return (
     <ConfigProvider theme={eyAntdTheme}>
@@ -221,7 +202,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               background: 'rgba(0,0,0,0.2)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
               <span
                 style={{
                   fontFamily: EYTypography.headingFontFamily,
@@ -299,12 +280,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
               placement="right"
               title={
                 <div style={{ fontSize: EYTypography.sizes.sm }}>
-                  <div><b>SAP URL：</b>{sap.url || t.notConfigured}</div>
+                  <div><b>SAP URL：</b>{sap.url || '未配置'}</div>
                   <div style={{ marginTop: EYSpacing.xs }}>
-                    <b>{t.lastCheck}：</b>
+                    <b>最后检查：</b>
                     {sap.lastCheck
-                      ? new Date(sap.lastCheck).toLocaleTimeString(language === 'zh-CN' ? 'zh-CN' : 'en-US')
-                      : t.notChecked}
+                      ? new Date(sap.lastCheck).toLocaleTimeString('zh-CN')
+                      : '未检查'}
                   </div>
                 </div>
               }
@@ -335,7 +316,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   fontWeight: EYTypography.weights.semibold,
                   letterSpacing: EYTypography.letterSpacings.normal
                 }}>
-                  {sap.connected ? t.sapConnected : t.sapDisconnected}
+                  {sap.connected ? 'SAP 已连接' : 'SAP 未连接'}
                 </Text>
               </div>
             </Tooltip>
@@ -344,10 +325,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
             {sap.connected && (
               <>
                 <Divider style={{ borderColor: 'rgba(255,230,0,0.15)', margin: `${EYSpacing.sm}px 0` }} />
-                <InfoRow icon={<UserOutlined />}        label={t.user}   value={sap.user} />
-                <InfoRow icon={<DatabaseOutlined />}    label={t.client} value={sap.client} />
-                <InfoRow icon={<GlobalOutlined />}      label={t.host}   value={sap.host} />
-                <InfoRow icon={<TranslationOutlined />} label={t.language}   value={sap.language} />
+                <InfoRow icon={<UserOutlined />}        label="用户"   value={sap.user} />
+                <InfoRow icon={<DatabaseOutlined />}    label="Client" value={sap.client} />
+                <InfoRow icon={<GlobalOutlined />}      label="主机"   value={sap.host} />
+                <InfoRow icon={<TranslationOutlined />} label="语言"   value={sap.language} />
               </>
             )}
           </div>
@@ -376,65 +357,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             }}>
               {pageLabel}
             </Text>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: EYSpacing.lg }}>
-              {/* User Info */}
-              {user && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: EYSpacing.sm }}>
-                  <Avatar 
-                    size="default" 
-                    icon={<UserOutlined />} 
-                    style={{ 
-                      background: EYColors.yellow, 
-                      color: EYColors.deepGray,
-                      fontWeight: EYTypography.weights.bold 
-                    }} 
-                  />
-                  <Text style={{ 
-                    fontSize: EYTypography.sizes.sm, 
-                    color: EYColors.deepGray,
-                    fontWeight: EYTypography.weights.medium 
-                  }}>
-                    {user.username}
-                  </Text>
-                </div>
-              )}
-              
-              {/* Language Selector */}
-              <Select
-                value={language}
-                onChange={setLanguage}
-                options={languageOptions}
-                style={{ width: 120 }}
-                size="middle"
-                suffixIcon={<GlobalOutlined style={{ color: EYColors.yellow }} />}
-                dropdownStyle={{
-                  borderRadius: EYBorderRadius.md,
-                  boxShadow: EYShadows.md
-                }}
-              />
-              
-              {/* Logout Button */}
-              <Popconfirm
-                title="确认登出"
-                description="确定要退出登录吗？"
-                onConfirm={handleLogout}
-                okText="确定"
-                cancelText="取消"
-                okButtonProps={{ danger: true }}
-              >
-                <Button
-                  icon={<LogoutOutlined />}
-                  size="middle"
-                  style={{
-                    borderColor: EYColors.mediumGray,
-                    color: EYColors.mediumGray,
-                    borderRadius: EYBorderRadius.md,
-                  }}
-                >
-                  登出
-                </Button>
-              </Popconfirm>
-              
+            <div style={{ marginLeft: 'auto' }}>
               <Text style={{ 
                 fontSize: EYTypography.sizes.xs, 
                 color: EYColors.mediumGray, 
@@ -442,7 +365,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 letterSpacing: EYTypography.letterSpacings.wider,
                 opacity: 0.8
               }}>
-                {t.buildingBetterWorld}
+                Building a better working world
               </Text>
             </div>
           </div>

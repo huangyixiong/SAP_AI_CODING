@@ -43,6 +43,7 @@ export async function generateTS(req: Request, res: Response): Promise<void> {
     objectType: z.string().optional(),
     additionalObjects: z.array(additionalObjectSchema).optional(),
     templateContent: z.string().optional(),
+    customSystemPrompt: z.string().optional(), // 新增：自定义提示词
   });
 
   const parseResult = schema.safeParse(req.body);
@@ -52,7 +53,7 @@ export async function generateTS(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const { programName, objectType, additionalObjects, templateContent } = parseResult.data;
+  const { programName, objectType, additionalObjects, templateContent, customSystemPrompt } = parseResult.data;
   const abortController = makeAbortController(req, res);
 
   try {
@@ -64,6 +65,7 @@ export async function generateTS(req: Request, res: Response): Promise<void> {
       signal: abortController.signal,
       additionalObjects,
       templateContent,
+      customSystemPrompt, // 传递自定义提示词
     })) {
       if (res.writableEnded) break;
       sendSSE(res, event);
@@ -85,6 +87,7 @@ export async function generateFS(req: Request, res: Response): Promise<void> {
     objectType: z.string().optional(),
     additionalObjects: z.array(additionalObjectSchema).optional(),
     templateContent: z.string().optional(),
+    customSystemPrompt: z.string().optional(), // 新增
   });
 
   const parseResult = schema.safeParse(req.body);
@@ -94,7 +97,7 @@ export async function generateFS(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const { programName, objectType, additionalObjects, templateContent } = parseResult.data;
+  const { programName, objectType, additionalObjects, templateContent, customSystemPrompt } = parseResult.data;
   const abortController = makeAbortController(req, res);
 
   try {
@@ -106,6 +109,7 @@ export async function generateFS(req: Request, res: Response): Promise<void> {
       signal: abortController.signal,
       additionalObjects,
       templateContent,
+      customSystemPrompt, // 传递
     })) {
       if (res.writableEnded) break;
       sendSSE(res, event);
@@ -125,6 +129,7 @@ export async function generateCode(req: Request, res: Response): Promise<void> {
   const schema = z.object({
     fsContent: z.string().min(1),
     targetProgramName: z.string().optional(),
+    customSystemPrompt: z.string().optional(), // 新增
   });
 
   const parseResult = schema.safeParse(req.body);
@@ -134,7 +139,7 @@ export async function generateCode(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const { fsContent, targetProgramName } = parseResult.data;
+  const { fsContent, targetProgramName, customSystemPrompt } = parseResult.data;
   const abortController = makeAbortController(req, res);
 
   try {
@@ -143,6 +148,7 @@ export async function generateCode(req: Request, res: Response): Promise<void> {
       fsContent,
       targetProgramName,
       signal: abortController.signal,
+      customSystemPrompt, // 传递
     })) {
       if (res.writableEnded) break;
       sendSSE(res, event);
@@ -202,6 +208,7 @@ export async function generateFSFromMeeting(req: Request, res: Response): Promis
   const schema = z.object({
     meetingContent: z.string().min(1),
     projectContext: z.string().optional(),
+    customSystemPrompt: z.string().optional(), // 新增
   });
 
   const parseResult = schema.safeParse(req.body);
@@ -211,7 +218,7 @@ export async function generateFSFromMeeting(req: Request, res: Response): Promis
     return;
   }
 
-  const { meetingContent, projectContext } = parseResult.data;
+  const { meetingContent, projectContext, customSystemPrompt } = parseResult.data;
   const abortController = makeAbortController(req, res);
 
   try {
@@ -220,6 +227,7 @@ export async function generateFSFromMeeting(req: Request, res: Response): Promis
       meetingContent,
       projectContext,
       signal: abortController.signal,
+      customSystemPrompt, // 传递
     })) {
       if (res.writableEnded) break;
       sendSSE(res, event);
@@ -238,14 +246,17 @@ export async function generateMeetingSummary(req: Request, res: Response): Promi
 
   // Support both JSON body and multipart form data
   let meetingText = '';
+  let customSystemPrompt: string | undefined;
   
   if (req.is('multipart/form-data')) {
     // Handle file uploads
     meetingText = req.body.text || '';
+    customSystemPrompt = req.body.customSystemPrompt;
     // Files would be in req.files - handled by middleware
   } else {
     const schema = z.object({
       text: z.string().min(1),
+      customSystemPrompt: z.string().optional(), // 新增
     });
 
     const parseResult = schema.safeParse(req.body);
@@ -255,6 +266,7 @@ export async function generateMeetingSummary(req: Request, res: Response): Promi
       return;
     }
     meetingText = parseResult.data.text;
+    customSystemPrompt = parseResult.data.customSystemPrompt;
   }
 
   const abortController = makeAbortController(req, res);
@@ -264,6 +276,7 @@ export async function generateMeetingSummary(req: Request, res: Response): Promi
     for await (const event of docService.generateMeetingSummary({
       meetingText,
       signal: abortController.signal,
+      customSystemPrompt, // 传递
     })) {
       if (res.writableEnded) break;
       sendSSE(res, event);

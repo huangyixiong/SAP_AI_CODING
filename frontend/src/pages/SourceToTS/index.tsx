@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { Card, Button, Alert, Steps, Space, Typography, Upload } from 'antd';
+import { Card, Button, Alert, Steps, Space, Typography, Upload, message } from 'antd';
 import { ThunderboltOutlined, StopOutlined, UploadOutlined } from '@ant-design/icons';
 import mammoth from 'mammoth';
 import ObjectSearchInput from '../../components/sap/ObjectSearchInput';
 import SourceAnalysisPanel from '../../components/sap/SourceAnalysis';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
 import ExportButton from '../../components/common/ExportButton';
+import CustomPromptPanel from '../../components/common/CustomPromptPanel';
 import { useSSE } from '../../hooks/useSSE';
+import { optimizePrompt } from '../../api/prompt.api';
 import { SAPObject, RelatedObject, SourceAnalysis } from '../../types';
 
 const { Text } = Typography;
@@ -20,6 +22,11 @@ export default function SourceToTS() {
   const [displayContent, setDisplayContent] = useState('');
   const [templateContent, setTemplateContent] = useState('');
   const [templateFileName, setTemplateFileName] = useState('');
+  
+  // 自定义提示词状态
+  const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [optimizing, setOptimizing] = useState(false);
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/ts/stream',
@@ -37,6 +44,29 @@ export default function SourceToTS() {
       else if (event.type === 'warning') setStatusMsg(`⚠️ ${event.message}`);
     },
   });
+
+  // 优化提示词
+  const handleOptimizePrompt = async () => {
+    if (!customPrompt.trim()) {
+      message.warning('请先输入提示词内容');
+      return;
+    }
+
+    setOptimizing(true);
+    try {
+      const optimized = await optimizePrompt({
+        currentPrompt: customPrompt,
+        context: '从SAP ABAP源码生成技术规格书(TS)',
+        requirements: ['保持专业性', '增强结构化程度'],
+      });
+      setCustomPrompt(optimized);
+      message.success('提示词已优化');
+    } catch (error) {
+      message.error('优化失败：' + (error as Error).message);
+    } finally {
+      setOptimizing(false);
+    }
+  };
 
   const handleObjectSelect = (obj: SAPObject | null) => {
     setSelectedObject(obj);
@@ -61,6 +91,8 @@ export default function SourceToTS() {
         objectUrl: o.objectUrl,
       })),
       ...(templateContent ? { templateContent } : {}),
+      // 只有勾选且非空时才传递自定义提示词
+      ...(useCustomPrompt && customPrompt.trim() ? { customSystemPrompt: customPrompt } : {}),
     });
   };
 
@@ -159,6 +191,17 @@ export default function SourceToTS() {
               </Button>
             )}
           </div>
+
+          {/* Custom Prompt Panel */}
+          <CustomPromptPanel
+            enabled={useCustomPrompt}
+            customPrompt={customPrompt}
+            onEnabledChange={setUseCustomPrompt}
+            onPromptChange={setCustomPrompt}
+            onOptimizePrompt={handleOptimizePrompt}
+            optimizing={optimizing}
+            placeholder="定义AI生成TS文档的特定要求，如：重点关注性能优化、包含详细的数据库表说明等..."
+          />
 
           {status !== 'idle' && currentStep >= 0 && (
             <Steps

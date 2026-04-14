@@ -76,23 +76,27 @@ export interface GenerateFromSAPOptions {
   signal?: AbortSignal;
   additionalObjects?: AdditionalObject[];
   templateContent?: string;
+  customSystemPrompt?: string; // 新增：自定义系统提示词
 }
 
 export interface GenerateCodeOptions {
   fsContent: string;
   targetProgramName?: string;
   signal?: AbortSignal;
+  customSystemPrompt?: string; // 新增：自定义系统提示词
 }
 
 export interface GenerateFSFromMeetingOptions {
   meetingContent: string;
   projectContext?: string;
   signal?: AbortSignal;
+  customSystemPrompt?: string; // 新增：自定义系统提示词
 }
 
 export interface GenerateMeetingSummaryOptions {
   meetingText: string;
   signal?: AbortSignal;
+  customSystemPrompt?: string; // 新增：自定义系统提示词
 }
 
 export interface WriteBackOptions {
@@ -220,16 +224,24 @@ class DocumentService {
       }
 
       // Step 4: Stream LLM generation
-      let systemPrompt = documentType === 'TS' ? TS_SYSTEM_PROMPT : FS_SYSTEM_PROMPT;
+      // 使用自定义提示词或默认提示词
+      let systemPrompt = options.customSystemPrompt?.trim() 
+        ? options.customSystemPrompt 
+        : (documentType === 'TS' ? TS_SYSTEM_PROMPT : FS_SYSTEM_PROMPT);
+      
       if (templateContent) {
         systemPrompt += `\n\n## 模板格式要求（严格遵守）\n以下是用户提供的 Word 模板内容，请严格按照此模板的章节结构、标题层级、表格格式生成文档，不要增减章节：\n\n${templateContent.slice(0, 6000)}`;
       }
+      
       const userMessage =
         documentType === 'TS'
           ? buildTSUserMessage(obj.name, obj.type, combinedSource)
           : buildFSUserMessage(obj.name, obj.type, combinedSource);
 
-      logger.info('[DocumentService] Starting LLM generation', { documentType });
+      logger.info('[DocumentService] Starting LLM generation', { 
+        documentType, 
+        usingCustomPrompt: !!options.customSystemPrompt?.trim() 
+      });
       yield { type: 'generating', message: `正在生成 ${documentType} 文档...` };
 
       let totalChars = 0;
@@ -272,19 +284,25 @@ class DocumentService {
     type: string;
     [key: string]: unknown;
   }> {
-    const { fsContent, targetProgramName, signal } = options;
+    const { fsContent, targetProgramName, signal, customSystemPrompt } = options;
 
-    logger.info('[DocumentService] Starting code generation from FS', { targetProgramName });
+    logger.info('[DocumentService] Starting code generation from FS', { 
+      targetProgramName,
+      usingCustomPrompt: !!customSystemPrompt?.trim()
+    });
     yield { type: 'start', targetProgramName };
 
     try {
       const userMessage = buildCodeUserMessage(targetProgramName || 'ZNEW_PROGRAM', fsContent);
 
+      // 使用自定义提示词或默认提示词
+      const systemPrompt = customSystemPrompt?.trim() || CODE_SYSTEM_PROMPT;
+
       let totalChars = 0;
       let chunkCount = 0;
       
       for await (const chunk of this.claudeService.streamGenerate({
-        systemPrompt: CODE_SYSTEM_PROMPT,
+        systemPrompt,
         userMessage,
         signal,
       })) {
@@ -307,19 +325,24 @@ class DocumentService {
     type: string;
     [key: string]: unknown;
   }> {
-    const { meetingContent, projectContext, signal } = options;
+    const { meetingContent, projectContext, signal, customSystemPrompt } = options;
 
-    logger.info('[DocumentService] Starting FS generation from meeting notes');
+    logger.info('[DocumentService] Starting FS generation from meeting notes', {
+      usingCustomPrompt: !!customSystemPrompt?.trim()
+    });
     yield { type: 'start' };
 
     try {
       const userMessage = buildFSFromMeetingUserMessage(meetingContent, projectContext);
 
+      // 使用自定义提示词或默认提示词
+      const systemPrompt = customSystemPrompt?.trim() || FS_FROM_MEETING_SYSTEM_PROMPT;
+
       let totalChars = 0;
       let chunkCount = 0;
       
       for await (const chunk of this.claudeService.streamGenerate({
-        systemPrompt: FS_FROM_MEETING_SYSTEM_PROMPT,
+        systemPrompt,
         userMessage,
         signal,
       })) {
@@ -342,9 +365,11 @@ class DocumentService {
     type: string;
     [key: string]: unknown;
   }> {
-    const { meetingText, signal } = options;
+    const { meetingText, signal, customSystemPrompt } = options;
 
-    logger.info('[DocumentService] Starting meeting summary generation');
+    logger.info('[DocumentService] Starting meeting summary generation', {
+      usingCustomPrompt: !!customSystemPrompt?.trim()
+    });
     yield { type: 'start' };
 
     try {
@@ -354,11 +379,14 @@ ${meetingText}
 
 请按照系统提示中的格式要求，提取关键信息并生成专业的会议纪要。`;
 
+      // 使用自定义提示词或默认提示词
+      const systemPrompt = customSystemPrompt?.trim() || MEETING_SUMMARY_SYSTEM_PROMPT;
+
       let totalChars = 0;
       let chunkCount = 0;
       
       for await (const chunk of this.claudeService.streamGenerate({
-        systemPrompt: MEETING_SUMMARY_SYSTEM_PROMPT,
+        systemPrompt,
         userMessage,
         signal,
       })) {
