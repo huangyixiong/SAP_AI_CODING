@@ -3,6 +3,7 @@ import { Input, Select, Button, Table, Space, Tag, Alert } from 'antd';
 import { SearchOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { searchSAPObjects } from '../../api/sap.api';
 import { SAPObject } from '../../types';
+import { EYSpacing } from '../../styles/ey-theme';
 
 const OBJECT_TYPES = [
   { value: '', label: '全部类型' },
@@ -95,30 +96,35 @@ export default function ObjectSearchInput({ onSelect, selectedObject }: ObjectSe
 
   return (
     <div>
-      <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: EYSpacing.md }}>
         <Select
           options={OBJECT_TYPES}
           value={objectType}
           onChange={setObjectType}
-          style={{ width: 160 }}
+          style={{ width: 160, borderRadius: 0 }}
+          size="middle"
         />
         <Input
           placeholder="输入程序名（支持通配符，如 ZMM*）"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onPressEnter={handleSearch}
+          size="middle"
+          style={{ borderRadius: 0, borderLeft: 'none' }}
         />
         <Button
           type="primary"
           icon={<SearchOutlined />}
           loading={loading}
           onClick={handleSearch}
+          size="middle"
+          style={{ borderRadius: 0, borderLeft: 'none' }}
         >
           搜索
         </Button>
-      </Space.Compact>
+      </div>
 
-      {error && <Alert type="warning" message={error} style={{ marginBottom: 12 }} showIcon />}
+      {error && <Alert type="warning" message={error} style={{ marginBottom: EYSpacing.md }} showIcon />}
 
       {results.length > 0 && (
         <Table

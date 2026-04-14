@@ -15,8 +15,10 @@ export const llmRateLimiter = rateLimit({
   standardHeaders: true, // 返回 RateLimit-* headers
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // 使用 IP 作为限流 key
-    return req.ip || req.socket.remoteAddress || 'unknown';
+    // 使用 IP 作为限流 key，兼容 IPv4 和 IPv6
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    // 将 IPv6 地址标准化，避免 ::ffff: 前缀问题
+    return ip.replace(/^::ffff:/, '');
   },
   handler: (req, res) => {
     logger.warn('[RateLimit] LLM API rate limit exceeded', {
