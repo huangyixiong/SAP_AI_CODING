@@ -202,7 +202,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               background: 'rgba(0,0,0,0.2)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span
                 style={{
                   fontFamily: EYTypography.headingFontFamily,
