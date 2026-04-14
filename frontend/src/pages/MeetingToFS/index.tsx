@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { Card, Button, Input, Alert, Space, Row, Col, Typography, Divider, message } from 'antd';
-import { ThunderboltOutlined, StopOutlined, TeamOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Card, Button, Input, Alert, Space, Row, Col, Typography, Divider, message, Upload } from 'antd';
+import { ThunderboltOutlined, StopOutlined, TeamOutlined, FileTextOutlined, UploadOutlined } from '@ant-design/icons';
+import type { UploadFile } from 'antd';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
 import ExportButton from '../../components/common/ExportButton';
 import CustomPromptPanel from '../../components/common/CustomPromptPanel';
@@ -9,10 +10,12 @@ import { optimizePrompt } from '../../api/prompt.api';
 import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, EYAnimations } from '../../styles/ey-theme';
 
 const { TextArea } = Input;
+const { Dragger } = Upload;
 const { Title, Text } = Typography;
 
 export default function MeetingToFS() {
   const [meetingContent, setMeetingContent] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [projectContext, setProjectContext] = useState('');
   const contentRef = useRef('');
   const [displayContent, setDisplayContent] = useState('');
@@ -21,6 +24,9 @@ export default function MeetingToFS() {
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [optimizing, setOptimizing] = useState(false);
+  
+  // 输入方式切换状态: 'text' | 'file'
+  const [inputMode, setInputMode] = useState<'text' | 'file'>('text');
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/fs-from-meeting/stream',
@@ -54,7 +60,17 @@ export default function MeetingToFS() {
   };
 
   const handleGenerate = () => {
-    if (!meetingContent.trim()) return;
+    if (!meetingContent.trim() && uploadedFiles.length === 0) {
+      message.warning('请输入会议记录或上传文件');
+      return;
+    }
+
+    // 如果只有文件没有文本，提示用户
+    if (!meetingContent.trim() && uploadedFiles.length > 0) {
+      message.warning('当前版本暂不支持直接解析文件，请先将文件内容复制粘贴到文本框中');
+      return;
+    }
+
     contentRef.current = '';
     setDisplayContent('');
     start({
@@ -63,6 +79,40 @@ export default function MeetingToFS() {
       // 只有勾选且非空时才传递自定义提示词
       ...(useCustomPrompt && customPrompt.trim() ? { customSystemPrompt: customPrompt } : {}),
     });
+  };
+
+  const uploadProps = {
+    name: 'files',
+    multiple: true,
+    accept: '.pdf,.doc,.docx,.txt',
+    beforeUpload: (file: File) => {
+      const isValidType = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+      ].includes(file.type) || /\.(pdf|doc|docx|txt)$/i.test(file.name);
+      
+      if (!isValidType) {
+        message.error(`${file.name} 不是支持的文件类型`);
+        return false;
+      }
+      
+      const isLt10M = file.size / 1024 / 1024 < 10;
+      if (!isLt10M) {
+        message.error(`${file.name} 文件大小超过 10MB`);
+        return false;
+      }
+      
+      setUploadedFiles(prev => [...prev, file]);
+      return false;
+    },
+    onRemove: (file: UploadFile) => {
+      const originalFile = file.originFileObj;
+      if (originalFile) {
+        setUploadedFiles(prev => prev.filter(f => f !== originalFile));
+      }
+    },
   };
 
   return (
@@ -109,41 +159,159 @@ export default function MeetingToFS() {
         <Col span={11}>
           <Space direction="vertical" style={{ width: '100%' }} size={EYSpacing.lg}>
             
-            {/* Meeting Content Input */}
+            {/* Input Method Selector */}
             <Card 
-              title={
-                <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
-                  <FileTextOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
-                  会议记录 / 需求文档
-                </span>
-              }
               size="small"
               style={{ 
                 borderRadius: EYBorderRadius.lg,
                 boxShadow: EYShadows.sm,
-                border: `1px solid ${EYColors.borderGray}`,
-                transition: EYAnimations.transitions.all,
+                border: `1px solid ${EYColors.borderGray}`
               }}
-              headStyle={{
-                borderBottom: `2px solid ${EYColors.yellow}`,
-                background: 'rgba(255,230,0,0.03)'
-              }}
-              bodyStyle={{ padding: EYSpacing.lg }}
-              hoverable
+              bodyStyle={{ padding: EYSpacing.md }}
             >
-              <TextArea
-                placeholder="在此粘贴会议记录、需求访谈记录、客户沟通邮件等内容..."
-                rows={18}
-                value={meetingContent}
-                onChange={(e) => setMeetingContent(e.target.value)}
+              <div style={{ display: 'flex', gap: EYSpacing.sm }}>
+                <Button
+                  type={inputMode === 'text' ? 'primary' : 'default'}
+                  icon={<FileTextOutlined />}
+                  onClick={() => setInputMode('text')}
+                  block
+                  style={{
+                    height: 40,
+                    fontWeight: EYTypography.weights.medium,
+                    borderRadius: EYBorderRadius.md,
+                    background: inputMode === 'text' ? EYColors.yellow : undefined,
+                    color: inputMode === 'text' ? EYColors.deepGray : undefined,
+                    borderColor: inputMode === 'text' ? EYColors.yellow : undefined,
+                  }}
+                >
+                  直接输入文本
+                </Button>
+                <Button
+                  type={inputMode === 'file' ? 'primary' : 'default'}
+                  icon={<UploadOutlined />}
+                  onClick={() => setInputMode('file')}
+                  block
+                  style={{
+                    height: 40,
+                    fontWeight: EYTypography.weights.medium,
+                    borderRadius: EYBorderRadius.md,
+                    background: inputMode === 'file' ? EYColors.yellow : undefined,
+                    color: inputMode === 'file' ? EYColors.deepGray : undefined,
+                    borderColor: inputMode === 'file' ? EYColors.yellow : undefined,
+                  }}
+                >
+                  上传文件
+                </Button>
+              </div>
+            </Card>
+
+            {/* Input Method 1: Text (Conditional Display) */}
+            {inputMode === 'text' && (
+              <Card 
+                title={
+                  <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
+                    <FileTextOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
+                    会议记录 / 需求文档
+                  </span>
+                }
+                size="small"
                 style={{ 
-                  fontSize: EYTypography.sizes.md,
-                  borderRadius: EYBorderRadius.md,
-                  borderColor: EYColors.borderGray,
+                  borderRadius: EYBorderRadius.lg,
+                  boxShadow: EYShadows.sm,
+                  border: `1px solid ${EYColors.borderGray}`,
                   transition: EYAnimations.transitions.all,
                 }}
-              />
-            </Card>
+                headStyle={{
+                  borderBottom: `2px solid ${EYColors.yellow}`,
+                  background: 'rgba(255,230,0,0.03)'
+                }}
+                bodyStyle={{ padding: EYSpacing.lg }}
+                hoverable
+              >
+                <TextArea
+                  placeholder="在此粘贴会议记录、需求访谈记录、客户沟通邮件等内容..."
+                  rows={14}
+                  value={meetingContent}
+                  onChange={(e) => setMeetingContent(e.target.value)}
+                  style={{ 
+                    fontSize: EYTypography.sizes.md,
+                    borderRadius: EYBorderRadius.md,
+                    borderColor: EYColors.borderGray,
+                    transition: EYAnimations.transitions.all,
+                  }}
+                />
+              </Card>
+            )}
+            
+            {/* Input Method 2: File Upload (Conditional Display) */}
+            {inputMode === 'file' && (
+              <Card 
+                title={
+                  <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
+                    <UploadOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
+                    上传文件
+                  </span>
+                }
+                size="small"
+                style={{ 
+                  borderRadius: EYBorderRadius.lg,
+                  boxShadow: EYShadows.sm,
+                  border: `1px solid ${EYColors.borderGray}`,
+                  transition: EYAnimations.transitions.all,
+                }}
+                headStyle={{
+                  borderBottom: `2px solid ${EYColors.yellow}`,
+                  background: 'rgba(255,230,0,0.03)'
+                }}
+                bodyStyle={{ padding: EYSpacing.lg }}
+                hoverable
+              >
+                <Dragger 
+                  {...uploadProps} 
+                  style={{ 
+                    padding: `${EYSpacing.xl}px 0`,
+                    borderRadius: EYBorderRadius.lg,
+                    border: `2px dashed ${EYColors.borderGray}`,
+                    background: EYColors.lightGray
+                  }}
+                >
+                  <p className="ant-upload-drag-icon">
+                    <UploadOutlined style={{ fontSize: 40, color: EYColors.yellow }} />
+                  </p>
+                  <p className="ant-upload-text" style={{ 
+                    fontSize: EYTypography.sizes.lg,
+                    fontWeight: EYTypography.weights.medium,
+                    color: EYColors.deepGray
+                  }}>
+                    点击或拖拽文件到此区域
+                  </p>
+                  <p className="ant-upload-hint" style={{ 
+                    fontSize: EYTypography.sizes.sm,
+                    color: EYColors.mediumGray,
+                    marginTop: EYSpacing.sm
+                  }}>
+                    ⚠️ 当前版本仅支持文本输入<br/>
+                    请上传后手动复制文件内容到"直接输入文本"模式
+                  </p>
+                </Dragger>
+                
+                {uploadedFiles.length > 0 && (
+                  <div style={{ marginTop: EYSpacing.md }}>
+                    <Alert
+                      message="文件已上传"
+                      description="请将文件内容复制粘贴到左侧「直接输入文本」选项卡中，然后点击生成按钮。"
+                      type="info"
+                      showIcon
+                      closable
+                      style={{ marginBottom: EYSpacing.sm }}
+                    />
+                    <Text type="secondary" style={{ fontSize: EYTypography.sizes.sm }}>
+                      ✓ 已上传 {uploadedFiles.length} 个文件（仅供参考）
+                    </Text>
+                  </div>
+                )}
+              </Card>
+            )}
             
             {/* Project Context Input */}
             <Card 
@@ -207,7 +375,7 @@ export default function MeetingToFS() {
                 <Button
                   type="primary"
                   icon={<ThunderboltOutlined />}
-                  disabled={!meetingContent.trim() || status === 'loading' || status === 'generating'}
+                  disabled={(!meetingContent.trim() && uploadedFiles.length === 0) || status === 'loading' || status === 'generating'}
                   loading={status === 'loading'}
                   onClick={handleGenerate}
                   style={{

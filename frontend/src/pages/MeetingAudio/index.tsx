@@ -64,11 +64,17 @@ export default function MeetingAudio() {
       return;
     }
 
+    // 如果只有文件没有文本，提示用户
+    if (!meetingContent.trim() && uploadedFiles.length > 0) {
+      message.warning('当前版本暂不支持直接解析文件，请先将文件内容复制粘贴到文本框中');
+      return;
+    }
+
     contentRef.current = '';
     setDisplayContent('');
     
     start({ 
-      text: meetingContent || '从上传的文件中提取的内容',
+      text: meetingContent,
       // 只有勾选且非空时才传递自定义提示词
       ...(useCustomPrompt && customPrompt.trim() ? { customSystemPrompt: customPrompt } : {}),
     });
@@ -277,15 +283,23 @@ export default function MeetingAudio() {
                     color: EYColors.mediumGray,
                     marginTop: EYSpacing.sm
                   }}>
-                    支持 PDF、Word、TXT 文本文件或 MP3/WAV/M4A 音频文件<br/>
-                    单个文件不超过 10MB
+                    ⚠️ 当前版本仅支持文本输入<br/>
+                    请上传后手动复制文件内容到"直接输入文本"模式
                   </p>
                 </Dragger>
                 
                 {uploadedFiles.length > 0 && (
                   <div style={{ marginTop: EYSpacing.md }}>
+                    <Alert
+                      message="文件已上传"
+                      description="请将文件内容复制粘贴到左侧「直接输入文本」选项卡中，然后点击生成按钮。"
+                      type="info"
+                      showIcon
+                      closable
+                      style={{ marginBottom: EYSpacing.sm }}
+                    />
                     <Text type="secondary" style={{ fontSize: EYTypography.sizes.sm }}>
-                      ✓ 已上传 {uploadedFiles.length} 个文件
+                      ✓ 已上传 {uploadedFiles.length} 个文件（仅供参考）
                     </Text>
                   </div>
                 )}
