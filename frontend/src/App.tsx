@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import AppLayout from './components/layout/AppLayout';
 import AppRouter from './router';
 
 export default function App() {
@@ -64,9 +63,7 @@ export default function App() {
       }}
     >
       <BrowserRouter>
-        <AppLayout>
-          <AppRouter />
-        </AppLayout>
+        <AppRouter />
       </BrowserRouter>
     </ConfigProvider>
   );
