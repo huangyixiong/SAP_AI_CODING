@@ -8,6 +8,7 @@ import MarkdownPreview from '../../components/common/MarkdownPreview';
 import ExportButton from '../../components/common/ExportButton';
 import { useSSE } from '../../hooks/useSSE';
 import { SAPObject, RelatedObject, SourceAnalysis } from '../../types';
+import { EYSpacing, EYTypography } from '../../styles/ey-theme';
 
 const { Text } = Typography;
 
@@ -128,7 +129,7 @@ export default function SourceToFS() {
           }
         >
           {/* Template upload */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: EYSpacing.sm, marginBottom: EYSpacing.md }}>
             <Upload
               accept=".docx"
               showUploadList={false}
@@ -143,17 +144,24 @@ export default function SourceToFS() {
                 reader.readAsArrayBuffer(file);
                 return false;
               }}
+              style={{ display: 'inline-block' }}
             >
               <Button icon={<UploadOutlined />} size="small">
                 {templateFileName || '上传 Word 模板（可选）'}
               </Button>
             </Upload>
             {templateFileName && (
+              <Text type="secondary" style={{ fontSize: EYTypography.sizes.xs }}>
+                {templateFileName}
+              </Text>
+            )}
+            {templateFileName && (
               <Button
                 type="link"
                 size="small"
                 danger
                 onClick={() => { setTemplateContent(''); setTemplateFileName(''); }}
+                style={{ padding: 0, height: 'auto' }}
               >
                 移除
               </Button>
