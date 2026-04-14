@@ -1,4 +1,4 @@
-import apiClient from './client';
+import { createSSEStream } from './client';
 
 export interface OptimizePromptRequest {
   currentPrompt: string;
@@ -8,36 +8,29 @@ export interface OptimizePromptRequest {
 
 /**
  * 优化提示词（SSE流式返回）
+ * @returns Promise<string> 优化后的提示词
  */
 export function optimizePrompt(data: OptimizePromptRequest): Promise<string> {
   return new Promise((resolve, reject) => {
-    const eventSource = new EventSource(
-      `/api/prompt/optimize?data=${encodeURIComponent(JSON.stringify(data))}`
-    );
-
     let optimizedPrompt = '';
 
-    eventSource.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        
-        if (parsed.type === 'chunk') {
-          optimizedPrompt += parsed.content;
-        } else if (parsed.type === 'done') {
-          eventSource.close();
-          resolve(optimizedPrompt);
-        } else if (parsed.type === 'error') {
-          eventSource.close();
-          reject(new Error(parsed.message));
+    createSSEStream(
+      '/api/prompt/optimize',
+      data,
+      (event) => {
+        if (event.type === 'chunk') {
+          optimizedPrompt += event.content as string;
+        } else if (event.type === 'error') {
+          reject(new Error(event.message as string));
         }
-      } catch (error) {
-        console.error('[optimizePrompt] Parse error:', error);
+      },
+      () => {
+        // Done - resolve with the accumulated prompt
+        resolve(optimizedPrompt);
+      },
+      (err) => {
+        reject(err);
       }
-    };
-
-    eventSource.onerror = () => {
-      eventSource.close();
-      reject(new Error('提示词优化连接失败'));
-    };
+    );
   });
 }

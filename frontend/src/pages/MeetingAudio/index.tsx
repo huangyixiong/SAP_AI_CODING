@@ -7,7 +7,7 @@ import ExportButton from '../../components/common/ExportButton';
 import CustomPromptPanel from '../../components/common/CustomPromptPanel';
 import { useSSE } from '../../hooks/useSSE';
 import { optimizePrompt } from '../../api/prompt.api';
-import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows } from '../../styles/ey-theme';
+import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, EYAnimations } from '../../styles/ey-theme';
 
 const { TextArea } = Input;
 const { Dragger } = Upload;
@@ -23,6 +23,9 @@ export default function MeetingAudio() {
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [optimizing, setOptimizing] = useState(false);
+  
+  // 输入方式切换状态: 'text' | 'file'
+  const [inputMode, setInputMode] = useState<'text' | 'file'>('text');
 
   const { status, error, start, cancel } = useSSE({
     url: '/api/documents/meeting-summary/stream',
@@ -143,112 +146,151 @@ export default function MeetingAudio() {
         <Col span={11}>
           <Space direction="vertical" style={{ width: '100%' }} size={EYSpacing.lg}>
             
-            {/* Input Method 1: Text */}
+            {/* Input Method Selector */}
             <Card 
-              title={
-                <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
-                  <FileTextOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
-                  方式一：直接输入
-                </span>
-              }
               size="small"
               style={{ 
                 borderRadius: EYBorderRadius.lg,
                 boxShadow: EYShadows.sm,
                 border: `1px solid ${EYColors.borderGray}`
               }}
-              headStyle={{
-                borderBottom: `2px solid ${EYColors.yellow}`,
-                background: 'rgba(255,230,0,0.03)'
-              }}
+              bodyStyle={{ padding: EYSpacing.md }}
             >
-              <TextArea
-                placeholder="在此粘贴会议记录、需求访谈记录、客户沟通邮件等内容..."
-                rows={10}
-                value={meetingContent}
-                onChange={(e) => setMeetingContent(e.target.value)}
-                style={{ 
-                  fontSize: EYTypography.sizes.md,
-                  borderRadius: EYBorderRadius.md,
-                  borderColor: EYColors.borderGray
-                }}
-              />
+              <div style={{ display: 'flex', gap: EYSpacing.sm }}>
+                <Button
+                  type={inputMode === 'text' ? 'primary' : 'default'}
+                  icon={<FileTextOutlined />}
+                  onClick={() => setInputMode('text')}
+                  block
+                  style={{
+                    height: 40,
+                    fontWeight: EYTypography.weights.medium,
+                    borderRadius: EYBorderRadius.md,
+                    background: inputMode === 'text' ? EYColors.yellow : undefined,
+                    color: inputMode === 'text' ? EYColors.deepGray : undefined,
+                    borderColor: inputMode === 'text' ? EYColors.yellow : undefined,
+                  }}
+                >
+                  直接输入文本
+                </Button>
+                <Button
+                  type={inputMode === 'file' ? 'primary' : 'default'}
+                  icon={<UploadOutlined />}
+                  onClick={() => setInputMode('file')}
+                  block
+                  style={{
+                    height: 40,
+                    fontWeight: EYTypography.weights.medium,
+                    borderRadius: EYBorderRadius.md,
+                    background: inputMode === 'file' ? EYColors.yellow : undefined,
+                    color: inputMode === 'file' ? EYColors.deepGray : undefined,
+                    borderColor: inputMode === 'file' ? EYColors.yellow : undefined,
+                  }}
+                >
+                  上传文件
+                </Button>
+              </div>
             </Card>
-            
-            {/* Divider with EY Yellow */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              margin: `${EYSpacing.md}px 0`
-            }}>
-              <Divider style={{ flex: 1, margin: 0, borderColor: EYColors.borderGray }} />
-              <Text style={{ 
-                padding: `0 ${EYSpacing.md}px`,
-                color: EYColors.mediumGray,
-                fontSize: EYTypography.sizes.sm,
-                fontWeight: EYTypography.weights.medium
-              }}>
-                或
-              </Text>
-              <Divider style={{ flex: 1, margin: 0, borderColor: EYColors.borderGray }} />
-            </div>
 
-            {/* Input Method 2: File Upload */}
-            <Card 
-              title={
-                <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
-                  <UploadOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
-                  方式二：上传文件
-                </span>
-              }
-              size="small"
-              style={{ 
-                borderRadius: EYBorderRadius.lg,
-                boxShadow: EYShadows.sm,
-                border: `1px solid ${EYColors.borderGray}`
-              }}
-              headStyle={{
-                borderBottom: `2px solid ${EYColors.yellow}`,
-                background: 'rgba(255,230,0,0.03)'
-              }}
-            >
-              <Dragger 
-                {...uploadProps} 
+            {/* Input Method 1: Text (Conditional Display) */}
+            {inputMode === 'text' && (
+              <Card 
+                title={
+                  <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
+                    <FileTextOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
+                    会议记录 / 需求文档
+                  </span>
+                }
+                size="small"
                 style={{ 
-                  padding: `${EYSpacing.xl}px 0`,
                   borderRadius: EYBorderRadius.lg,
-                  border: `2px dashed ${EYColors.borderGray}`,
-                  background: EYColors.lightGray
+                  boxShadow: EYShadows.sm,
+                  border: `1px solid ${EYColors.borderGray}`,
+                  transition: EYAnimations.transitions.all,
                 }}
+                headStyle={{
+                  borderBottom: `2px solid ${EYColors.yellow}`,
+                  background: 'rgba(255,230,0,0.03)'
+                }}
+                bodyStyle={{ padding: EYSpacing.lg }}
+                hoverable
               >
-                <p className="ant-upload-drag-icon">
-                  <UploadOutlined style={{ fontSize: 40, color: EYColors.yellow }} />
-                </p>
-                <p className="ant-upload-text" style={{ 
-                  fontSize: EYTypography.sizes.lg,
-                  fontWeight: EYTypography.weights.medium,
-                  color: EYColors.deepGray
-                }}>
-                  点击或拖拽文件到此区域
-                </p>
-                <p className="ant-upload-hint" style={{ 
-                  fontSize: EYTypography.sizes.sm,
-                  color: EYColors.mediumGray,
-                  marginTop: EYSpacing.sm
-                }}>
-                  支持 PDF、Word、TXT 文本文件或 MP3/WAV/M4A 音频文件<br/>
-                  单个文件不超过 10MB
-                </p>
-              </Dragger>
-              
-              {uploadedFiles.length > 0 && (
-                <div style={{ marginTop: EYSpacing.md }}>
-                  <Text type="secondary" style={{ fontSize: EYTypography.sizes.sm }}>
-                    ✓ 已上传 {uploadedFiles.length} 个文件
-                  </Text>
-                </div>
-              )}
-            </Card>
+                <TextArea
+                  placeholder="在此粘贴会议记录、需求访谈记录、客户沟通邮件等内容..."
+                  rows={14}
+                  value={meetingContent}
+                  onChange={(e) => setMeetingContent(e.target.value)}
+                  style={{ 
+                    fontSize: EYTypography.sizes.md,
+                    borderRadius: EYBorderRadius.md,
+                    borderColor: EYColors.borderGray,
+                    transition: EYAnimations.transitions.all,
+                  }}
+                />
+              </Card>
+            )}
+            
+            {/* Input Method 2: File Upload (Conditional Display) */}
+            {inputMode === 'file' && (
+              <Card 
+                title={
+                  <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
+                    <UploadOutlined style={{ marginRight: EYSpacing.sm, color: EYColors.yellow }} />
+                    上传文件
+                  </span>
+                }
+                size="small"
+                style={{ 
+                  borderRadius: EYBorderRadius.lg,
+                  boxShadow: EYShadows.sm,
+                  border: `1px solid ${EYColors.borderGray}`,
+                  transition: EYAnimations.transitions.all,
+                }}
+                headStyle={{
+                  borderBottom: `2px solid ${EYColors.yellow}`,
+                  background: 'rgba(255,230,0,0.03)'
+                }}
+                bodyStyle={{ padding: EYSpacing.lg }}
+                hoverable
+              >
+                <Dragger 
+                  {...uploadProps} 
+                  style={{ 
+                    padding: `${EYSpacing.xl}px 0`,
+                    borderRadius: EYBorderRadius.lg,
+                    border: `2px dashed ${EYColors.borderGray}`,
+                    background: EYColors.lightGray
+                  }}
+                >
+                  <p className="ant-upload-drag-icon">
+                    <UploadOutlined style={{ fontSize: 40, color: EYColors.yellow }} />
+                  </p>
+                  <p className="ant-upload-text" style={{ 
+                    fontSize: EYTypography.sizes.lg,
+                    fontWeight: EYTypography.weights.medium,
+                    color: EYColors.deepGray
+                  }}>
+                    点击或拖拽文件到此区域
+                  </p>
+                  <p className="ant-upload-hint" style={{ 
+                    fontSize: EYTypography.sizes.sm,
+                    color: EYColors.mediumGray,
+                    marginTop: EYSpacing.sm
+                  }}>
+                    支持 PDF、Word、TXT 文本文件或 MP3/WAV/M4A 音频文件<br/>
+                    单个文件不超过 10MB
+                  </p>
+                </Dragger>
+                
+                {uploadedFiles.length > 0 && (
+                  <div style={{ marginTop: EYSpacing.md }}>
+                    <Text type="secondary" style={{ fontSize: EYTypography.sizes.sm }}>
+                      ✓ 已上传 {uploadedFiles.length} 个文件
+                    </Text>
+                  </div>
+                )}
+              </Card>
+            )}
             
             {/* Action Buttons - EY Style */}
             <Card 
