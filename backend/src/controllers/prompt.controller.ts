@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
 import ClaudeService from '../services/ClaudeService';
+import { TS_SYSTEM_PROMPT } from '../prompts/ts.prompt';
+import { FS_SYSTEM_PROMPT } from '../prompts/fs.prompt';
+import { CODE_SYSTEM_PROMPT } from '../prompts/code.prompt';
+import { FS_FROM_MEETING_SYSTEM_PROMPT } from '../prompts/fs-from-meeting.prompt';
 
 // SSE helper
 function sendSSE(res: Response, data: object): void {
@@ -12,6 +16,45 @@ function initSSE(res: Response): void {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
+}
+
+/**
+ * GET /api/prompt/defaults
+ * 获取所有默认提示词
+ */
+export function getDefaultPrompts(req: Request, res: Response): void {
+  try {
+    res.json({
+      success: true,
+      data: {
+        ts: {
+          name: '技术规格书(TS)',
+          description: '从SAP ABAP源码生成技术规格书的默认提示词',
+          content: TS_SYSTEM_PROMPT,
+        },
+        fs: {
+          name: '功能规格书(FS)',
+          description: '从SAP ABAP源码生成功能规格书的默认提示词',
+          content: FS_SYSTEM_PROMPT,
+        },
+        code: {
+          name: 'ABAP代码生成',
+          description: '从功能规格书生成ABAP代码的默认提示词',
+          content: CODE_SYSTEM_PROMPT,
+        },
+        meetingToFs: {
+          name: '会议纪要转FS',
+          description: '从会议纪要有生成能规格书的默认提示词',
+          content: FS_FROM_MEETING_SYSTEM_PROMPT,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '获取失败',
+    });
+  }
 }
 
 /**

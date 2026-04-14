@@ -1,9 +1,31 @@
 import { createSSEStream } from './client';
+import apiClient from './client';
 
 export interface OptimizePromptRequest {
   currentPrompt: string;
   context?: string;
   requirements?: string[];
+}
+
+export interface DefaultPrompt {
+  name: string;
+  description: string;
+  content: string;
+}
+
+export interface DefaultPromptsResponse {
+  ts: DefaultPrompt;
+  fs: DefaultPrompt;
+  code: DefaultPrompt;
+  meetingToFs: DefaultPrompt;
+}
+
+/**
+ * 获取所有默认提示词
+ */
+export async function getDefaultPrompts(): Promise<DefaultPromptsResponse> {
+  const response = await apiClient.get('/prompt/defaults');
+  return response.data.data;
 }
 
 /**

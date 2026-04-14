@@ -21,7 +21,7 @@ app.use(errorHandler);
 
 async function start() {
   // Always start the HTTP server first so health endpoint is reachable
-  app.listen(config.port, () => {
+  app.listen(config.port, '0.0.0.0', () => {
     logger.info(`[Server] Running on http://localhost:${config.port}`);
     logger.info(`[Server] CORS origin: ${config.corsOrigin}`);
   });
