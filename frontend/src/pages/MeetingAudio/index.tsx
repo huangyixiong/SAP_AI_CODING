@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Card, Button, Input, Alert, Space, Row, Col, Upload, message, Typography, Divider } from 'antd';
+import { Card, Button, Input, Alert, Space, Row, Col, Upload, message, Typography, Grid } from 'antd';
 import { ThunderboltOutlined, StopOutlined, AudioOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
@@ -12,8 +12,11 @@ import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, EYAnimati
 const { TextArea } = Input;
 const { Dragger } = Upload;
 const { Text, Title } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function MeetingAudio() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [meetingContent, setMeetingContent] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const contentRef = useRef('');
@@ -147,9 +150,9 @@ export default function MeetingAudio() {
         </Text>
       </div>
 
-      <Row gutter={EYSpacing.xxl}>
+      <Row gutter={isMobile ? EYSpacing.md : EYSpacing.xxl}>
         {/* Left Panel - Input Area */}
-        <Col span={11}>
+        <Col xs={24} md={11}>
           <Space direction="vertical" style={{ width: '100%' }} size={EYSpacing.lg}>
             
             {/* Input Method Selector */}
@@ -379,7 +382,7 @@ export default function MeetingAudio() {
         </Col>
 
         {/* Right Panel - Output Area */}
-        <Col span={13}>
+        <Col xs={24} md={13}>
           <Card
             title={
               <span style={{ fontWeight: EYTypography.weights.semibold, fontSize: EYTypography.sizes.lg }}>
@@ -410,7 +413,7 @@ export default function MeetingAudio() {
               <MarkdownPreview
                 content={displayContent}
                 style={{ 
-                  maxHeight: 700, 
+                  maxHeight: isMobile ? '55vh' : 700, 
                   overflowY: 'auto', 
                   padding: EYSpacing.lg,
                   fontSize: EYTypography.sizes.md,

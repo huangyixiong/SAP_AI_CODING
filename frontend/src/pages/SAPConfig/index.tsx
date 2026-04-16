@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Modal, Form, Input, message, Tag, Popconfirm, Typography, Divider } from 'antd';
+import { Card, Table, Button, Space, Modal, Form, Input, message, Tag, Popconfirm, Typography, Divider, Grid } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined, ThunderboltOutlined, SettingOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows } from '../../styles/ey-theme';
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 interface SAPConfig {
   id: string;
@@ -18,6 +19,8 @@ interface SAPConfig {
 }
 
 export default function SAPConfig() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [configs, setConfigs] = useState<SAPConfig[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SAPConfig | null>(null);
@@ -332,7 +335,8 @@ export default function SAPConfig() {
             showSizeChanger: true,
             showTotal: (total) => `共 ${total} 条配置`,
           }}
-          scroll={{ x: 1200 }}
+          scroll={{ x: isMobile ? 900 : 1200 }}
+          size={isMobile ? 'small' : 'middle'}
         />
       </Card>
 

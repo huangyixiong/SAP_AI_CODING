@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import logger from '../lib/logger';
 
 // LLM API 速率限制 - 防止超额费用
@@ -15,10 +15,8 @@ export const llmRateLimiter = rateLimit({
   standardHeaders: true, // 返回 RateLimit-* headers
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // 使用 IP 作为限流 key，兼容 IPv4 和 IPv6
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    // 将 IPv6 地址标准化，避免 ::ffff: 前缀问题
-    return ip.replace(/^::ffff:/, '');
+    // 使用官方推荐 helper，避免 IPv6 绕过限流
+    return ipKeyGenerator(req.ip || req.socket.remoteAddress || 'unknown');
   },
   handler: (req, res) => {
     logger.warn('[RateLimit] LLM API rate limit exceeded', {

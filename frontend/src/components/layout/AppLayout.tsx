@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Layout, Menu, Tooltip, Typography, Divider, ConfigProvider } from 'antd';
+import { Layout, Menu, Tooltip, Typography, Divider, ConfigProvider, Grid, Drawer, Button } from 'antd';
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -13,6 +13,7 @@ import {
   TranslationOutlined,
   AudioOutlined,
   SettingOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../../store/useAppStore';
 import { getHealthStatus } from '../../api/sap.api';
@@ -20,6 +21,7 @@ import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, eyAntdThe
 
 const { Sider, Content } = Layout;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 type MenuItem = Required<MenuProps>['items'][number];
 
@@ -148,6 +150,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { sap, setSAPInfo } = useAppStore();
+  const screens = useBreakpoint();
+  const isMobile = !screens.lg;
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   useEffect(() => {
     const check = () => {
@@ -179,6 +184,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <ConfigProvider theme={eyAntdTheme}>
       <Layout style={{ minHeight: '100vh', background: EYColors.lightGray }}>
         {/* ── Sidebar - EY Style ── */}
+        {!isMobile && (
         <Sider
           width={280}
           style={{ 
@@ -202,23 +208,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
               background: 'rgba(0,0,0,0.2)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: EYSpacing.md }}>
               <span
                 style={{
                   fontFamily: EYTypography.headingFontFamily,
                   fontWeight: EYTypography.weights.black,
-                  fontSize: EYTypography.sizes.display,
+                  fontSize: 44,
                   color: EYColors.yellow,
                   letterSpacing: EYTypography.letterSpacings.tight,
-                  lineHeight: EYTypography.lineHeights.tight,
+                  lineHeight: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  position: 'relative',
+                  top: 6,
                 }}
               >
                 EY
               </span>
               <div style={{ 
-                marginLeft: EYSpacing.md, 
                 borderLeft: `2px solid ${EYColors.yellow}`, 
-                paddingLeft: EYSpacing.md 
+                paddingLeft: EYSpacing.md,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
               }}>
                 <div style={{ 
                   color: EYColors.yellow, 
@@ -333,6 +345,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             )}
           </div>
         </Sider>
+        )}
 
         {/* ── Main Content Area ── */}
         <Layout style={{ background: EYColors.lightGray }}>
@@ -341,39 +354,56 @@ export default function AppLayout({ children }: AppLayoutProps) {
             style={{
               background: EYColors.white,
               height: 72,
-              display: 'flex',
-              alignItems: 'center',
-              padding: `0 ${EYSpacing.xxl}px`,
+              padding: `0 ${isMobile ? EYSpacing.md : EYSpacing.xxl}px`,
               borderBottom: `4px solid ${EYColors.yellow}`,
               boxShadow: EYShadows.md,
               flexShrink: 0,
             }}
           >
-            <Text style={{ 
-              fontSize: EYTypography.sizes.xxl, 
-              fontWeight: EYTypography.weights.bold, 
-              color: EYColors.deepGray, 
-              letterSpacing: EYTypography.letterSpacings.normal,
-            }}>
-              {pageLabel}
-            </Text>
-            <div style={{ marginLeft: 'auto' }}>
+            <div
+              style={{
+                maxWidth: 1600,
+                width: '100%',
+                height: '100%',
+                margin: '0 auto',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              {isMobile && (
+                <Button
+                  type="text"
+                  icon={<MenuOutlined />}
+                  onClick={() => setMobileMenuOpen(true)}
+                  style={{ marginRight: EYSpacing.sm }}
+                />
+              )}
               <Text style={{ 
-                fontSize: EYTypography.sizes.xs, 
-                color: EYColors.mediumGray, 
-                fontStyle: 'italic', 
-                letterSpacing: EYTypography.letterSpacings.wider,
-                opacity: 0.8
+                fontSize: isMobile ? EYTypography.sizes.lg : EYTypography.sizes.xxl,
+                fontWeight: EYTypography.weights.bold, 
+                color: EYColors.deepGray, 
+                letterSpacing: EYTypography.letterSpacings.normal,
               }}>
-                Building a better working world
+                {pageLabel}
               </Text>
+              <div style={{ marginLeft: 'auto', display: isMobile ? 'none' : 'block' }}>
+                <Text style={{ 
+                  fontSize: EYTypography.sizes.xs, 
+                  color: EYColors.mediumGray, 
+                  fontStyle: 'italic', 
+                  letterSpacing: EYTypography.letterSpacings.wider,
+                  opacity: 0.8
+                }}>
+                  Building a better working world
+                </Text>
+              </div>
             </div>
           </div>
 
           {/* Content */}
           <Content
             style={{
-              padding: EYSpacing.xxl,
+              padding: isMobile ? EYSpacing.md : EYSpacing.xxl,
               background: EYColors.lightGray,
               overflow: 'auto',
               minHeight: 'calc(100vh - 72px)',
@@ -383,6 +413,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </Content>
         </Layout>
       </Layout>
+      <Drawer
+        title="导航"
+        placement="left"
+        open={isMobile && mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        width={280}
+        bodyStyle={{ padding: 0, background: EYColors.deepGray }}
+        headerStyle={{ background: EYColors.deepGray, color: EYColors.white, borderBottom: '1px solid rgba(255,230,0,0.2)' }}
+      >
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[currentPath]}
+          defaultOpenKeys={['research', 'blueprint', 'implementation']}
+          items={menuItems}
+          onClick={({ key }) => {
+            navigate(key);
+            setMobileMenuOpen(false);
+          }}
+          style={{ borderRight: 'none', background: EYColors.deepGray }}
+        />
+      </Drawer>
     </ConfigProvider>
   );
 }

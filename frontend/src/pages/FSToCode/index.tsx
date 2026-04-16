@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-  Card, Button, Input, Alert, Space, Typography, Row, Col, Steps, Divider, message
+  Card, Button, Input, Alert, Space, Typography, Row, Col, Steps, Divider, message, Grid
 } from 'antd';
 import { ThunderboltOutlined, StopOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import MarkdownPreview from '../../components/common/MarkdownPreview';
@@ -12,10 +12,13 @@ import { writeBackToSAP } from '../../api/sap.api';
 
 const { TextArea } = Input;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 type WriteBackStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export default function FSToCode() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [fsContent, setFsContent] = useState('');
   const [targetProgramName, setTargetProgramName] = useState('');
   const [objectUrl, setObjectUrl] = useState('');
@@ -108,8 +111,8 @@ export default function FSToCode() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
-      <Row gutter={16}>
-        <Col span={12}>
+      <Row gutter={isMobile ? 12 : 16}>
+        <Col xs={24} md={12}>
           <Card title="第一步：输入 FS 文档" size="small" style={{ height: '100%' }}>
             <Input
               placeholder="目标程序名称（如 ZMM_NEW_REPORT）"
@@ -157,7 +160,7 @@ export default function FSToCode() {
           </Card>
         </Col>
 
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card
             title="生成的 ABAP 代码"
             size="small"
@@ -190,7 +193,7 @@ export default function FSToCode() {
             {displayCode ? (
               <MarkdownPreview
                 content={displayCode}
-                style={{ maxHeight: 520, overflowY: 'auto' }}
+                style={{ maxHeight: isMobile ? '52vh' : 520, overflowY: 'auto' }}
               />
             ) : (
               <div style={{ color: '#747480', textAlign: 'center', padding: '60px 0', borderTop: '3px solid #FFE600' }}>
@@ -204,22 +207,22 @@ export default function FSToCode() {
 
       {displayCode && status === 'done' && (
         <Card title="第二步：写回 SAP 系统（可选）" size="small">
-          <Row gutter={16} align="middle">
-            <Col span={10}>
+          <Row gutter={isMobile ? 8 : 16} align="middle">
+            <Col xs={24} md={10}>
               <Input
                 placeholder="SAP 对象 URL（如 /sap/bc/adt/programs/programs/zmm_xxx）"
                 value={objectUrl}
                 onChange={(e) => setObjectUrl(e.target.value)}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={24} md={6}>
               <Input
                 placeholder="Transport 编号（可选，如 DEVK900123）"
                 value={transportNumber}
                 onChange={(e) => setTransportNumber(e.target.value)}
               />
             </Col>
-            <Col span={4}>
+            <Col xs={24} md={4}>
               <Button
                 type="primary"
                 danger
@@ -232,7 +235,7 @@ export default function FSToCode() {
                 写回 SAP 并激活
               </Button>
             </Col>
-            <Col span={4}>
+            <Col xs={24} md={4}>
               {writeBackStatus === 'success' && (
                 <Text type="success">✓ 写回并激活成功</Text>
               )}
