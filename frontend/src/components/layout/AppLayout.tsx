@@ -133,7 +133,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
             lastCheck: data.sap.lastCheck ?? null,
           })
         )
-        .catch(() => setSAPInfo({ connected: false }));
+        .catch(() =>
+          setSAPInfo({
+            connected: false,
+            url: '',
+            host: '',
+            user: '',
+            client: '',
+            language: '',
+            lastCheck: null,
+          })
+        );
     };
 
     check();

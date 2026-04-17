@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import ClaudeService from '../services/ClaudeService';
 import { TS_SYSTEM_PROMPT } from '../prompts/ts.prompt';
 import { FS_SYSTEM_PROMPT } from '../prompts/fs.prompt';
@@ -59,9 +60,20 @@ export async function optimizePrompt(req: Request, res: Response): Promise<void>
   initSSE(res);
 
   try {
-    const { currentPrompt, context, requirements } = req.body;
+    const schema = z.object({
+      currentPrompt: z.string().trim().min(1, '提示词内容不能为空'),
+      context: z.string().optional(),
+      requirements: z.array(z.string().trim().min(1)).optional(),
+    });
+    const parseResult = schema.safeParse(req.body);
+    if (!parseResult.success) {
+      sendSSE(res, { type: 'error', message: '参数错误：' + parseResult.error.issues[0]?.message });
+      res.end();
+      return;
+    }
+    const { currentPrompt, context, requirements } = parseResult.data;
 
-    if (!currentPrompt || !currentPrompt.trim()) {
+    if (!currentPrompt.trim()) {
       sendSSE(res, { type: 'error', message: '提示词内容不能为空' });
       res.end();
       return;

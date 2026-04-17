@@ -19,6 +19,7 @@
 ```bash
 npm install
 npm run install:all
+npm run build:mcp
 ```
 
 或手动执行：
@@ -60,6 +61,10 @@ npm run dev
 启动后可访问：
 - 前端：`http://localhost:5173`
 - 后端：`http://localhost:3001`
+
+说明：
+- `npm run dev` 会先执行 MCP 构建，再并行启动前后端
+- 若 `mcp-abap-abap-adt-api/dist/index.js` 不存在，请先执行 `npm run build:mcp`
 
 ## 5) 快速验证
 

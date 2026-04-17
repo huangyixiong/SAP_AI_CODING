@@ -13,7 +13,7 @@ export function createSSEStream(
   url: string,
   body: object,
   onEvent: (event: Record<string, unknown>) => void,
-  onDone: () => void,
+  onDone: (reason: 'done' | 'error' | 'eof') => void,
   onError: (err: Error) => void
 ): AbortController {
   const controller = new AbortController();
@@ -49,7 +49,7 @@ export function createSSEStream(
                 const parsed = JSON.parse(data);
                 onEvent(parsed);
                 if (parsed.type === 'done' || parsed.type === 'error') {
-                  onDone();
+                  onDone(parsed.type === 'done' ? 'done' : 'error');
                   return;
                 }
               } catch {
@@ -59,7 +59,7 @@ export function createSSEStream(
           }
         }
       }
-      onDone();
+      onDone('eof');
     })
     .catch((err: Error) => {
       if (err.name !== 'AbortError') {

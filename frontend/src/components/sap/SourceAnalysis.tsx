@@ -25,6 +25,10 @@ interface SourceAnalysisProps {
   onCheckedChange: (checked: RelatedObject[]) => void;
 }
 
+function getRelatedObjectKey(obj: RelatedObject): string {
+  return obj.objectUrl || `${obj.type}:${obj.name}`;
+}
+
 export default function SourceAnalysisPanel({
   selectedObject,
   onReady,
@@ -33,7 +37,7 @@ export default function SourceAnalysisPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SourceAnalysisData | null>(null);
-  const [checkedNames, setCheckedNames] = useState<Set<string>>(new Set());
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
 
   // Source viewer modal state
   const [viewObj, setViewObj] = useState<RelatedObject | null>(null);
@@ -51,7 +55,7 @@ export default function SourceAnalysisPanel({
     setLoading(true);
     setError(null);
     setData(null);
-    setCheckedNames(new Set());
+    setCheckedKeys(new Set());
 
     analyzeObjectSource(selectedObject.objectUrl)
       .then((result) => {
@@ -59,10 +63,10 @@ export default function SourceAnalysisPanel({
         const autoChecked = new Set(
           result.relatedObjects
             .filter((o) => o.autoInclude && o.objectUrl)
-            .map((o) => o.name)
+            .map((o) => getRelatedObjectKey(o))
         );
-        setCheckedNames(autoChecked);
-        const checkedList = result.relatedObjects.filter((o) => autoChecked.has(o.name));
+        setCheckedKeys(autoChecked);
+        const checkedList = result.relatedObjects.filter((o) => autoChecked.has(getRelatedObjectKey(o)));
         onReady(result, checkedList);
       })
       .catch((err) => setError(err.message || '读取失败'))
@@ -70,10 +74,11 @@ export default function SourceAnalysisPanel({
   }, [selectedObject.objectUrl]);
 
   const handleCheck = (obj: RelatedObject, checked: boolean) => {
-    setCheckedNames((prev) => {
+    setCheckedKeys((prev) => {
       const next = new Set(prev);
-      checked ? next.add(obj.name) : next.delete(obj.name);
-      const checkedList = data?.relatedObjects.filter((o) => next.has(o.name)) ?? [];
+      const key = getRelatedObjectKey(obj);
+      checked ? next.add(key) : next.delete(key);
+      const checkedList = data?.relatedObjects.filter((o) => next.has(getRelatedObjectKey(o))) ?? [];
       onCheckedChange(checkedList);
       return next;
     });
@@ -235,9 +240,9 @@ export default function SourceAnalysisPanel({
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingLeft: 20 }}>
                   {items.map((obj) => (
-                    <div key={obj.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <div key={getRelatedObjectKey(obj)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Checkbox
-                        checked={checkedNames.has(obj.name)}
+                        checked={checkedKeys.has(getRelatedObjectKey(obj))}
                         onChange={(e) => handleCheck(obj, e.target.checked)}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -273,8 +278,8 @@ export default function SourceAnalysisPanel({
 
           <Divider style={{ margin: '8px 0' }} />
           <Text type="secondary" style={{ fontSize: 12 }}>
-            已勾选 {checkedNames.size} 个关联对象
-            {checkedNames.size > 0 && '，将与主程序源码合并后生成文档'}
+            已勾选 {checkedKeys.size} 个关联对象
+            {checkedKeys.size > 0 && '，将与主程序源码合并后生成文档'}
           </Text>
         </div>
       )}

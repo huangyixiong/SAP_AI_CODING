@@ -82,8 +82,11 @@ export default function FSToCode() {
 
     // Extract pure ABAP code from markdown code block if wrapped
     let source = codeRef.current;
-    const codeBlockMatch = source.match(/```abap\n([\s\S]*?)```/);
-    if (codeBlockMatch) source = codeBlockMatch[1];
+    const codeBlockMatch = source.match(/```(?:\s*abap)?\s*\r?\n([\s\S]*?)```/i);
+    if (codeBlockMatch) {
+      source = codeBlockMatch[1];
+    }
+    source = source.replace(/^\s+|\s+$/g, '');
 
     setWriteBackStatus('loading');
     setWriteBackError('');

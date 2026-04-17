@@ -26,6 +26,8 @@ export function useSSE({ url, onChunk, onStatusEvent }: UseSSEOptions) {
       abortRef.current?.abort();
       setStatus('loading');
       setError(null);
+      let hasTerminalEvent = false;
+      let hasDoneEvent = false;
 
       abortRef.current = createSSEStream(
         url,
@@ -35,10 +37,13 @@ export function useSSE({ url, onChunk, onStatusEvent }: UseSSEOptions) {
             setStatus('generating');
             onChunkRef.current?.(event.content as string);
           } else if (event.type === 'error') {
+            hasTerminalEvent = true;
             setStatus('error');
             setError((event.message as string) || '生成失败');
             onStatusEventRef.current?.(event);
           } else if (event.type === 'done') {
+            hasTerminalEvent = true;
+            hasDoneEvent = true;
             setStatus('done');
             onStatusEventRef.current?.(event);
           } else {
@@ -48,8 +53,27 @@ export function useSSE({ url, onChunk, onStatusEvent }: UseSSEOptions) {
             onStatusEventRef.current?.(event);
           }
         },
-        () => {
-          setStatus((prev) => (prev === 'generating' || prev === 'loading' ? 'done' : prev));
+        (reason) => {
+          if (reason === 'done') {
+            hasTerminalEvent = true;
+            hasDoneEvent = true;
+            setStatus('done');
+            return;
+          }
+          if (reason === 'error') {
+            hasTerminalEvent = true;
+            setStatus('error');
+            setError((prev) => prev || '生成失败');
+            return;
+          }
+          if (hasDoneEvent) {
+            setStatus('done');
+            return;
+          }
+          if (!hasTerminalEvent) {
+            setStatus('error');
+            setError('流式响应中断，请重试');
+          }
         },
         (err) => {
           setStatus('error');

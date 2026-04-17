@@ -14,7 +14,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_API_TARGET || 'http://localhost:3001',
         changeOrigin: true,
         timeout: 0,          // no socket timeout (needed for SSE long-running streams)
         proxyTimeout: 0,     // no proxy timeout

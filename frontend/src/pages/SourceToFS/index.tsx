@@ -166,12 +166,30 @@ export default function SourceToFS() {
               accept=".docx"
               showUploadList={false}
               beforeUpload={(file) => {
+                if (!file.name.toLowerCase().endsWith('.docx')) {
+                  message.error('仅支持上传 .docx 模板文件');
+                  return false;
+                }
                 const reader = new FileReader();
                 reader.onload = async (e) => {
-                  const arrayBuffer = e.target?.result as ArrayBuffer;
-                  const result = await mammoth.extractRawText({ arrayBuffer });
-                  setTemplateContent(result.value);
-                  setTemplateFileName(file.name);
+                  try {
+                    const arrayBuffer = e.target?.result as ArrayBuffer;
+                    if (!arrayBuffer) {
+                      throw new Error('模板读取失败');
+                    }
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    setTemplateContent(result.value);
+                    setTemplateFileName(file.name);
+                  } catch (err) {
+                    message.error(`模板解析失败：${(err as Error).message}`);
+                    setTemplateContent('');
+                    setTemplateFileName('');
+                  }
+                };
+                reader.onerror = () => {
+                  message.error('模板读取失败，请重试');
+                  setTemplateContent('');
+                  setTemplateFileName('');
                 };
                 reader.readAsArrayBuffer(file);
                 return false;

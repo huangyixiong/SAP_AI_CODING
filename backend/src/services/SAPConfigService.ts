@@ -70,6 +70,10 @@ class SAPConfigService {
 
   saveConfigs(configs: SAPConfig[]): void {
     try {
+      const configDir = path.dirname(CONFIG_FILE);
+      if (!fs.existsSync(configDir)) {
+        fs.mkdirSync(configDir, { recursive: true });
+      }
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(configs, null, 2), 'utf-8');
       logger.info('[SAP Config] Configs saved successfully');
     } catch (error) {
