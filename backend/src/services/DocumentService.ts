@@ -3,65 +3,12 @@ import ClaudeService from './ClaudeService';
 import { TS_SYSTEM_PROMPT, buildTSUserMessage } from '../prompts/ts.prompt';
 import { FS_SYSTEM_PROMPT, buildFSUserMessage } from '../prompts/fs.prompt';
 import { CODE_SYSTEM_PROMPT, buildCodeUserMessage } from '../prompts/code.prompt';
-import { FS_FROM_MEETING_SYSTEM_PROMPT, buildFSFromMeetingUserMessage } from '../prompts/fs-from-meeting.prompt';
 import { WriteBackResult } from '../types/api.types';
 import logger from '../lib/logger';
 import { SAPConnectionError, LLMError } from '../errors';
 
 const MAX_SOURCE_LINES = 8000;
 
-// Meeting Summary Prompt
-const MEETING_SUMMARY_SYSTEM_PROMPT = `你是一位专业的会议纪要整理专家，擅长从会议录音转文字或会议记录中提取关键信息并生成结构化的会议纪要。
-
-## 你的任务
-根据提供的会议内容，生成一份专业、清晰、结构完整的会议纪要。
-
-## 输出格式要求
-请严格按照以下Markdown格式输出：
-
-# 会议纪要
-
-## 1. 基本信息
-- **会议主题**：[主题]
-- **会议时间**：[时间]
-- **参会人员**：[人员列表]
-- **记录人**：[记录人]
-
-## 2. 会议背景
-[简要说明会议召开的背景和目的]
-
-## 3. 讨论要点
-[分条列出主要讨论的内容，每条包含：
-- 议题标题
-- 讨论内容摘要
-- 关键决策或结论]
-
-## 4. 决策与结论
-[总结会议中达成的重要决策和结论]
-
-## 5. 待办事项（Action Items）
-| 序号 | 任务描述 | 负责人 | 截止日期 | 状态 |
-|------|----------|--------|----------|------|
-| 1 | [任务] | [负责人] | [日期] | [状态] |
-
-## 6. 下次会议安排
-- **时间**：[时间]
-- **议题**：[议题]
-
-## 7. 附件与参考资料
-[列出相关文档、链接等]
-
-## 写作原则
-1. **客观准确**：忠实于原始会议内容，不添加主观臆断
-2. **重点突出**：突出关键决策、重要讨论点和行动项
-3. **条理清晰**：使用清晰的层级结构和编号
-4. **语言简练**：用简洁明了的语言表达
-5. ** actionable**：确保待办事项具体、可执行、有明确责任人和时间节点
-
-## 注意事项
-- 如果某些信息在原文中未提及，标注为"待确认"
-- 对于模糊或不确定的内容，保持原文表述或标注需要澄清
-- 专业术语保持原样，必要时添加简短解释`;
 
 export interface AdditionalObject {
   name: string;
@@ -82,19 +29,6 @@ export interface GenerateFromSAPOptions {
 export interface GenerateCodeOptions {
   fsContent: string;
   targetProgramName?: string;
-  signal?: AbortSignal;
-  customSystemPrompt?: string; // 新增：自定义系统提示词
-}
-
-export interface GenerateFSFromMeetingOptions {
-  meetingContent: string;
-  projectContext?: string;
-  signal?: AbortSignal;
-  customSystemPrompt?: string; // 新增：自定义系统提示词
-}
-
-export interface GenerateMeetingSummaryOptions {
-  meetingText: string;
   signal?: AbortSignal;
   customSystemPrompt?: string; // 新增：自定义系统提示词
 }
@@ -315,93 +249,6 @@ class DocumentService {
       yield { type: 'done', totalChars };
     } catch (error) {
       logger.error('[DocumentService] Code generation failed', { 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-      throw error;
-    }
-  }
-
-  async *generateFSFromMeeting(options: GenerateFSFromMeetingOptions): AsyncGenerator<{
-    type: string;
-    [key: string]: unknown;
-  }> {
-    const { meetingContent, projectContext, signal, customSystemPrompt } = options;
-
-    logger.info('[DocumentService] Starting FS generation from meeting notes', {
-      usingCustomPrompt: !!customSystemPrompt?.trim()
-    });
-    yield { type: 'start' };
-
-    try {
-      const userMessage = buildFSFromMeetingUserMessage(meetingContent, projectContext);
-
-      // 使用自定义提示词或默认提示词
-      const systemPrompt = customSystemPrompt?.trim() || FS_FROM_MEETING_SYSTEM_PROMPT;
-
-      let totalChars = 0;
-      let chunkCount = 0;
-      
-      for await (const chunk of this.claudeService.streamGenerate({
-        systemPrompt,
-        userMessage,
-        signal,
-      })) {
-        totalChars += chunk.length;
-        chunkCount++;
-        yield { type: 'chunk', content: chunk };
-      }
-
-      logger.info('[DocumentService] Meeting to FS completed', { totalChars, chunks: chunkCount });
-      yield { type: 'done', totalChars };
-    } catch (error) {
-      logger.error('[DocumentService] Meeting to FS failed', { 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-      throw error;
-    }
-  }
-
-  async *generateMeetingSummary(options: GenerateMeetingSummaryOptions): AsyncGenerator<{
-    type: string;
-    [key: string]: unknown;
-  }> {
-    const { meetingText, signal, customSystemPrompt } = options;
-
-    logger.info('[DocumentService] Starting meeting summary generation', {
-      usingCustomPrompt: !!customSystemPrompt?.trim()
-    });
-    yield { type: 'start' };
-
-    try {
-      const userMessage = `请根据以下会议内容生成结构化的会议纪要：
-
-${meetingText}
-
-请按照系统提示中的格式要求，提取关键信息并生成专业的会议纪要。`;
-
-      // 使用自定义提示词或默认提示词
-      const systemPrompt = customSystemPrompt?.trim() || MEETING_SUMMARY_SYSTEM_PROMPT;
-
-      let totalChars = 0;
-      let chunkCount = 0;
-      
-      for await (const chunk of this.claudeService.streamGenerate({
-        systemPrompt,
-        userMessage,
-        signal,
-      })) {
-        totalChars += chunk.length;
-        chunkCount++;
-        yield { type: 'chunk', content: chunk };
-      }
-
-      logger.info('[DocumentService] Meeting summary generation completed', { 
-        totalChars, 
-        chunks: chunkCount 
-      });
-      yield { type: 'done', totalChars };
-    } catch (error) {
-      logger.error('[DocumentService] Meeting summary generation failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });
       throw error;

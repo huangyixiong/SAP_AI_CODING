@@ -222,23 +222,6 @@ export default function CustomPromptPanel({
                 />
               </div>
             </TabPane>
-            <TabPane tab={defaultPrompts.meetingToFs.name} key="meetingToFs">
-              <div style={{ padding: EYSpacing.md }}>
-                <Text type="secondary" style={{ display: 'block', marginBottom: EYSpacing.sm }}>
-                  {defaultPrompts.meetingToFs.description}
-                </Text>
-                <TextArea
-                  value={defaultPrompts.meetingToFs.content}
-                  readOnly
-                  autoSize={{ minRows: 15, maxRows: 25 }}
-                  style={{
-                    fontFamily: 'Consolas, Monaco, monospace',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                  }}
-                />
-              </div>
-            </TabPane>
           </Tabs>
         ) : null}
       </Modal>

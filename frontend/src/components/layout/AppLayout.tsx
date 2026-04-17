@@ -6,13 +6,10 @@ import {
   FileTextOutlined,
   FormOutlined,
   CodeOutlined,
-  TeamOutlined,
   UserOutlined,
   GlobalOutlined,
   DatabaseOutlined,
   TranslationOutlined,
-  AudioOutlined,
-  SettingOutlined,
   MenuOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../../store/useAppStore';
@@ -27,32 +24,8 @@ type MenuItem = Required<MenuProps>['items'][number];
 
 const menuItems: MenuItem[] = [
   {
-    key: 'research',
-    label: '前期调研',
-    type: 'group',
-    children: [
-      { 
-        key: '/research/meeting-audio', 
-        icon: <AudioOutlined />, 
-        label: '会议纪要智能生成' 
-      },
-    ],
-  },
-  {
-    key: 'blueprint',
-    label: '蓝图计划',
-    type: 'group',
-    children: [
-      { 
-        key: '/blueprint/meeting-fs', 
-        icon: <TeamOutlined />, 
-        label: '需求转功能规格' 
-      },
-    ],
-  },
-  {
-    key: 'implementation',
-    label: '系统实施',
+    key: 'core',
+    label: '核心功能',
     type: 'group',
     children: [
       { 
@@ -70,22 +43,14 @@ const menuItems: MenuItem[] = [
         icon: <CodeOutlined />, 
         label: '规格驱动代码生成' 
       },
-      { 
-        key: '/implementation/config', 
-        icon: <SettingOutlined />, 
-        label: 'SAP配置管理' 
-      },
     ],
   },
 ] as MenuItem[];
 
 const PAGE_LABELS: Record<string, string> = {
-  '/research/meeting-audio': '会议纪要智能生成',
-  '/blueprint/meeting-fs': '需求转功能规格说明书',
   '/implementation/sap-ts': '代码反向工程 - 技术规格书',
   '/implementation/sap-fs': '代码反向工程 - 功能规格书',
   '/implementation/fs-code': '规格驱动代码生成',
-  '/implementation/config': 'SAP配置管理',
 };
 
 interface InfoRowProps {
@@ -266,7 +231,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               theme="dark"
               mode="inline"
               selectedKeys={[currentPath]}
-              defaultOpenKeys={['research', 'blueprint', 'implementation']}
+              defaultOpenKeys={['core']}
               items={menuItems}
               onClick={({ key }) => navigate(key)}
               style={{ 
@@ -426,7 +391,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           theme="dark"
           mode="inline"
           selectedKeys={[currentPath]}
-          defaultOpenKeys={['research', 'blueprint', 'implementation']}
+          defaultOpenKeys={['core']}
           items={menuItems}
           onClick={({ key }) => {
             navigate(key);

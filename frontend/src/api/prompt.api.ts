@@ -17,7 +17,6 @@ export interface DefaultPromptsResponse {
   ts: DefaultPrompt;
   fs: DefaultPrompt;
   code: DefaultPrompt;
-  meetingToFs: DefaultPrompt;
 }
 
 /**
