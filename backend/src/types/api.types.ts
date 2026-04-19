@@ -93,3 +93,21 @@ export interface SSEEvent {
   type: SSEEventType;
   [key: string]: unknown;
 }
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  fullName: string;
+  email: string;
+  roles: string[];
+  permissions: string[];
+  mustChangePassword: boolean;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthUser;
+    }
+  }
+}
