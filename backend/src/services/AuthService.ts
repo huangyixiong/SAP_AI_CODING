@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { config } from '../config';
 import { AppError } from '../errors';
+import { getUserWithRolesAndPerms } from '../lib/userHelpers';
 
 export interface TokenPair {
   accessToken: string;
@@ -22,35 +23,14 @@ export interface LoginResult extends TokenPair {
   };
 }
 
-async function getUserWithRolesAndPerms(userId: number) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      userRoles: {
-        include: {
-          role: {
-            include: { rolePermissions: { include: { permission: true } } },
-          },
-        },
-      },
-    },
-  });
-  if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
-
-  const roles = user.userRoles.map((ur) => ur.role.name);
-  const permissions = [
-    ...new Set(
-      user.userRoles.flatMap((ur) =>
-        ur.role.rolePermissions.map((rp) => rp.permission.code)
-      )
-    ),
-  ];
-  return { user, roles, permissions };
+function parseDays(s: string): number {
+  const match = s.match(/^(\d+)d$/);
+  return match ? parseInt(match[1], 10) : 30;
 }
 
 function generateAccessToken(userId: number): string {
   return jwt.sign({ sub: userId, type: 'access' }, config.jwt.secret, {
-    expiresIn: config.jwt.expiresIn as any,
+    expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'],
   });
 }
 
@@ -59,7 +39,7 @@ async function generateRefreshToken(userId: number): Promise<string> {
   const prefix = raw.slice(0, 8);
   const hash = await bcrypt.hash(raw, 10);
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
+  expiresAt.setDate(expiresAt.getDate() + parseDays(config.jwt.refreshExpiresIn));
 
   await prisma.refreshToken.create({
     data: { tokenPrefix: prefix, tokenHash: hash, userId, expiresAt },

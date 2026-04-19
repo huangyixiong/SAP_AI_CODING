@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { TokenExpiredError } from 'jsonwebtoken';
 import { config } from '../config';
-import prisma from '../lib/prisma';
+import { getUserWithRolesAndPerms } from '../lib/userHelpers';
 
 const MUST_CHANGE_PASSWORD_ALLOWLIST = ['/change-password', '/logout', '/me'];
 
@@ -16,37 +16,26 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   try {
     payload = jwt.verify(token, config.jwt.secret) as unknown as typeof payload;
-  } catch {
-    return res.status(401).json({ success: false, error: { code: 'TOKEN_EXPIRED', message: 'Token 已过期，请刷新' } });
+  } catch (err) {
+    const code = err instanceof TokenExpiredError ? 'TOKEN_EXPIRED' : 'UNAUTHORIZED';
+    const message = err instanceof TokenExpiredError ? 'Token 已过期，请刷新' : '无效 token';
+    return res.status(401).json({ success: false, error: { code, message } });
   }
 
   if (payload.type !== 'access') {
     return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '无效 token' } });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
-    include: {
-      userRoles: {
-        include: {
-          role: { include: { rolePermissions: { include: { permission: true } } } },
-        },
-      },
-    },
-  });
-
-  if (!user || !user.isActive) {
+  let userData: Awaited<ReturnType<typeof getUserWithRolesAndPerms>>;
+  try {
+    userData = await getUserWithRolesAndPerms(payload.sub);
+  } catch {
     return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '用户不存在或已禁用' } });
   }
-
-  const roles = user.userRoles.map((ur) => ur.role.name);
-  const permissions = [
-    ...new Set(
-      user.userRoles.flatMap((ur) =>
-        ur.role.rolePermissions.map((rp) => rp.permission.code)
-      )
-    ),
-  ];
+  if (!userData.user.isActive) {
+    return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '用户不存在或已禁用' } });
+  }
+  const { user, roles, permissions } = userData;
 
   req.user = {
     id: user.id,
