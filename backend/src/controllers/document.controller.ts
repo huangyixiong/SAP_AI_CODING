@@ -127,8 +127,8 @@ export async function generateCode(req: Request, res: Response): Promise<void> {
   initSSE(res);
 
   const schema = z.object({
-    fsContent: z.string().min(1),
-    targetProgramName: z.string().optional(),
+    fsContent: z.string().trim().min(1).max(60000),
+    targetProgramName: z.string().trim().min(1).max(40),
     customSystemPrompt: z.string().optional(), // 新增
   });
 

@@ -364,6 +364,28 @@ class MCPClientService {
     }
   }
 
+  async transportInfo(objSourceUrl: string): Promise<unknown> {
+    const result = await this.callTool('transportInfo', { objSourceUrl });
+    const text = this.extractText(result);
+    try {
+      const parsed = JSON.parse(text);
+      return parsed.transportInfo ?? parsed;
+    } catch {
+      return text;
+    }
+  }
+
+  async syntaxCheckCode(url: string, code: string): Promise<{ success: boolean; raw: unknown }> {
+    const result = await this.callTool('syntaxCheckCode', { url, code });
+    const text = this.extractText(result);
+    try {
+      const parsed = JSON.parse(text);
+      return { success: true, raw: parsed.result ?? parsed };
+    } catch {
+      return { success: true, raw: text };
+    }
+  }
+
   getConnectionStatus(): boolean {
     return this.isConnected;
   }

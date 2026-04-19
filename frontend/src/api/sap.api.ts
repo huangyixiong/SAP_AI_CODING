@@ -1,6 +1,33 @@
 import apiClient from './client';
 import { SAPObject, SourceAnalysis } from '../types';
 
+export type ActivationMode = 'auto' | 'manual';
+
+export interface WriteBackStructuredResult {
+  requestId: string;
+  requestSuccess: boolean;
+  writeSuccess: boolean;
+  activationSuccess: boolean | null;
+  activationMode: ActivationMode;
+  stage: 'precheck' | 'lock' | 'write' | 'activate' | 'unlock' | 'done';
+  errorCode?: string;
+  error?: string;
+  messages: string[];
+  timings: {
+    precheck_ms?: number;
+    write_ms?: number;
+    activate_ms?: number;
+    unlock_ms?: number;
+    total_ms: number;
+  };
+  data?: {
+    reachable: boolean;
+    sourceUrl: string;
+    transportRequired?: boolean;
+    syntaxOk?: boolean | null;
+  };
+}
+
 export async function searchSAPObjects(
   query: string,
   type?: string,
@@ -31,8 +58,26 @@ export async function writeBackToSAP(payload: {
   objectName: string;
   source: string;
   transportNumber?: string;
-}): Promise<{ success: boolean; error?: string }> {
+  activationMode?: ActivationMode;
+}): Promise<WriteBackStructuredResult> {
   const res = await apiClient.post('/sap/write-back', payload);
+  return res.data;
+}
+
+export async function precheckWriteBackToSAP(payload: {
+  objectUrl: string;
+  objectName: string;
+  source?: string;
+}): Promise<WriteBackStructuredResult> {
+  const res = await apiClient.post('/sap/write-back/precheck', payload);
+  return res.data;
+}
+
+export async function activateAfterWrite(payload: {
+  objectUrl: string;
+  objectName: string;
+}): Promise<WriteBackStructuredResult> {
+  const res = await apiClient.post('/sap/write-back/activate', payload);
   return res.data;
 }
 

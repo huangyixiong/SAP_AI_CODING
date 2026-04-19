@@ -1,9 +1,10 @@
 import MCPClientService from './MCPClientService';
 import ClaudeService from './ClaudeService';
+import WritebackMemoryService from './WritebackMemoryService';
 import { TS_SYSTEM_PROMPT, buildTSUserMessage } from '../prompts/ts.prompt';
 import { FS_SYSTEM_PROMPT, buildFSUserMessage } from '../prompts/fs.prompt';
 import { CODE_SYSTEM_PROMPT, buildCodeUserMessage } from '../prompts/code.prompt';
-import { WriteBackResult } from '../types/api.types';
+import { ActivationMode, WriteBackResult } from '../types/api.types';
 import logger from '../lib/logger';
 import { SAPConnectionError, LLMError } from '../errors';
 
@@ -38,15 +39,19 @@ export interface WriteBackOptions {
   objectName: string;
   source: string;
   transportNumber?: string;
+  activationMode?: ActivationMode;
+  requestId?: string;
 }
 
 class DocumentService {
   private mcpService: MCPClientService;
   private claudeService: ClaudeService;
+  private memoryService: WritebackMemoryService;
 
   constructor() {
     this.mcpService = MCPClientService.getInstance();
     this.claudeService = new ClaudeService();
+    this.memoryService = WritebackMemoryService.getInstance();
   }
 
   // Yields SSE-style progress objects and final text chunks
@@ -230,7 +235,11 @@ class DocumentService {
       const userMessage = buildCodeUserMessage(targetProgramName || 'ZNEW_PROGRAM', fsContent);
 
       // 使用自定义提示词或默认提示词
-      const systemPrompt = customSystemPrompt?.trim() || CODE_SYSTEM_PROMPT;
+      let systemPrompt = customSystemPrompt?.trim() || CODE_SYSTEM_PROMPT;
+      const memoryAddon = this.memoryService.getPromptAddon();
+      if (memoryAddon) {
+        systemPrompt += memoryAddon;
+      }
 
       let totalChars = 0;
       let chunkCount = 0;
@@ -257,66 +266,115 @@ class DocumentService {
 
   async writeCodeBackToSAP(options: WriteBackOptions): Promise<WriteBackResult> {
     const { objectUrl, objectName, source, transportNumber } = options;
+    const activationMode = options.activationMode || 'auto';
+    const requestId = options.requestId || `wb-${Date.now()}`;
+    const messages: string[] = [];
+    const startedAt = Date.now();
 
     logger.info('[DocumentService] Writing code back to SAP', { 
+      requestId,
       objectName, 
       objectUrl, 
-      hasTransport: !!transportNumber 
+      hasTransport: !!transportNumber,
+      activationMode,
     });
 
     let lockHandle: string | null = null;
+    let writeSuccess = false;
+    let activationSuccess: boolean | null = null;
+    let stage: WriteBackResult['stage'] = 'lock';
+    let errorCode: WriteBackResult['errorCode'] | undefined;
+    const timings: WriteBackResult['timings'] = { total_ms: 0 };
+    const lockStart = Date.now();
 
     try {
       // Step 1: Lock
       logger.debug('[DocumentService] Locking object', { objectUrl });
       lockHandle = await this.mcpService.lock(objectUrl);
+      timings.precheck_ms = Date.now() - lockStart;
 
       // Step 2: Write source
+      stage = 'write';
+      const writeStart = Date.now();
       const sourceUrl = objectUrl.endsWith('/source/main')
         ? objectUrl
         : `${objectUrl}/source/main`;
       
       logger.debug('[DocumentService] Setting object source', { sourceUrl });
       await this.mcpService.setObjectSource(sourceUrl, source, lockHandle, transportNumber);
+      writeSuccess = true;
+      timings.write_ms = Date.now() - writeStart;
 
-      // Step 3: Activate
-      logger.info('[DocumentService] Activating object', { objectName });
-      const activationResult = await this.mcpService.activateByName(objectName, objectUrl);
-
-      if (activationResult.success) {
-        logger.info('[DocumentService] Code written and activated successfully', { objectName });
+      // Step 3: Activate (optional for manual mode)
+      if (activationMode === 'auto') {
+        stage = 'activate';
+        const activateStart = Date.now();
+        logger.info('[DocumentService] Activating object', { requestId, objectName });
+        const activationResult = await this.mcpService.activateByName(objectName, objectUrl);
+        activationSuccess = activationResult.success;
+        messages.push(...activationResult.messages);
+        timings.activate_ms = Date.now() - activateStart;
+        if (activationResult.success) {
+          logger.info('[DocumentService] Code written and activated successfully', { requestId, objectName });
+        } else {
+          logger.warn('[DocumentService] Activation completed with messages', {
+            requestId,
+            objectName,
+            messages: activationResult.messages,
+          });
+          errorCode = 'ACTIVATION_FAILED';
+        }
       } else {
-        logger.warn('[DocumentService] Activation completed with messages', { 
-          objectName, 
-          messages: activationResult.messages 
-        });
+        activationSuccess = null;
+        messages.push('手动激活模式：已写回，待后续激活。');
       }
 
       return {
-        success: true,
-        activationResult: {
-          success: activationResult.success,
-          messages: activationResult.messages,
-        },
+        requestId,
+        requestSuccess: true,
+        writeSuccess,
+        activationSuccess,
+        activationMode,
+        stage: 'done',
+        errorCode,
+        messages,
+        timings: { ...timings, total_ms: Date.now() - startedAt },
       };
     } catch (err) {
       logger.error('[DocumentService] Failed to write code to SAP', { 
+        requestId,
         error: err instanceof Error ? err.message : String(err),
         objectName 
       });
-      
+
+      if (stage === 'lock') errorCode = 'LOCK_CONFLICT';
+      if (stage === 'write') errorCode = 'WRITE_SOURCE_FAILED';
+      if (stage === 'activate') errorCode = errorCode || 'ACTIVATION_FAILED';
+
       return {
-        success: false,
+        requestId,
+        requestSuccess: false,
+        writeSuccess,
+        activationSuccess,
+        activationMode,
+        stage,
+        errorCode: errorCode || 'UNKNOWN_ERROR',
         error: (err as Error).message,
+        messages,
+        timings: { ...timings, total_ms: Date.now() - startedAt },
       };
     } finally {
       // Step 4: Always unlock
       if (lockHandle) {
+        stage = 'unlock';
+        const unlockStart = Date.now();
         try {
-          logger.debug('[DocumentService] Unlocking object', { objectUrl });
+          logger.debug('[DocumentService] Unlocking object', { requestId, objectUrl });
           await this.mcpService.unLock(objectUrl, lockHandle);
+          timings.unlock_ms = Date.now() - unlockStart;
         } catch (unlockErr) {
           logger.error('[DocumentService] Failed to unlock object - THIS MAY CAUSE LOCK ISSUES', { 
+            requestId,
             error: unlockErr instanceof Error ? unlockErr.message : String(unlockErr),
             objectUrl,
             recommendation: 'Please manually unlock the object in SAP'
@@ -324,6 +382,45 @@ class DocumentService {
           // Note: We don't throw here to avoid masking the original error
         }
       }
+    }
+  }
+
+  async activateCodeInSAP(options: {
+    objectUrl: string;
+    objectName: string;
+    requestId?: string;
+  }): Promise<WriteBackResult> {
+    const requestId = options.requestId || `act-${Date.now()}`;
+    const startedAt = Date.now();
+    const timings: WriteBackResult['timings'] = { total_ms: 0 };
+    try {
+      const activateStart = Date.now();
+      const activationResult = await this.mcpService.activateByName(options.objectName, options.objectUrl);
+      timings.activate_ms = Date.now() - activateStart;
+      return {
+        requestId,
+        requestSuccess: activationResult.success,
+        writeSuccess: true,
+        activationSuccess: activationResult.success,
+        activationMode: 'manual',
+        stage: 'done',
+        errorCode: activationResult.success ? undefined : 'ACTIVATION_FAILED',
+        messages: activationResult.messages || [],
+        timings: { ...timings, total_ms: Date.now() - startedAt },
+      };
+    } catch (err) {
+      return {
+        requestId,
+        requestSuccess: false,
+        writeSuccess: true,
+        activationSuccess: false,
+        activationMode: 'manual',
+        stage: 'activate',
+        errorCode: 'ACTIVATION_FAILED',
+        error: (err as Error).message,
+        messages: [],
+        timings: { ...timings, total_ms: Date.now() - startedAt },
+      };
     }
   }
 }

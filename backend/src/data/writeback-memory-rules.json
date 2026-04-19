@@ -1,0 +1,14 @@
+{
+  "rules": [
+    {
+      "id": "wr-1776407927335",
+      "title": "语法检查前置参数校验",
+      "rule": "执行语法检查前，必须确保请求参数包含非空的mainUrl与content字段，否则阻断调用并提示补充。",
+      "sourceErrorCode": "SYNTAX_CHECK_FAILED",
+      "sourceStage": "precheck",
+      "enabled": true,
+      "createdAt": "2026-04-17T06:38:47.335Z",
+      "hitCount": 2
+    }
+  ]
+}
