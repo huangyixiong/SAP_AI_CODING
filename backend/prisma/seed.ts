@@ -45,10 +45,10 @@ async function main() {
     }
   }
 
-  const existing = await prisma.user.findUnique({ where: { username: 'admin' } });
-  if (!existing) {
+  let adminUser = await prisma.user.findUnique({ where: { username: 'admin' } });
+  if (!adminUser) {
     const hashed = await bcrypt.hash('Admin@123', 12);
-    const admin = await prisma.user.create({
+    adminUser = await prisma.user.create({
       data: {
         username: 'admin',
         fullName: '系统管理员',
@@ -57,11 +57,17 @@ async function main() {
         mustChangePassword: true,
       },
     });
-    await prisma.userRole.create({ data: { userId: admin.id, roleId: adminRole.id } });
     console.log('Created admin user (admin / Admin@123)');
   } else {
     console.log('Admin user already exists, skipping');
   }
+
+  // Always ensure admin has the admin role (idempotent)
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: adminUser.id, roleId: adminRole.id } },
+    update: {},
+    create: { userId: adminUser.id, roleId: adminRole.id },
+  });
 
   console.log('Seed complete');
 }
