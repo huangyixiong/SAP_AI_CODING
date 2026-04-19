@@ -93,6 +93,9 @@ export const writeBackRateLimiter = rateLimit({
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  keyGenerator: (req) => {
+    return ipKeyGenerator(req.ip || req.socket.remoteAddress || 'unknown');
+  },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -100,6 +103,23 @@ export const loginRateLimiter = rateLimit({
     res.status(429).json({
       success: false,
       error: { code: 'RATE_LIMIT_EXCEEDED', message: '登录尝试过于频繁，请15分钟后重试' },
+    });
+  },
+});
+
+// Token 刷新速率限制
+export const refreshRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => {
+    return ipKeyGenerator(req.ip || req.socket.remoteAddress || 'unknown');
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error: { code: 'RATE_LIMIT_EXCEEDED', message: '请求过于频繁，请稍后重试' },
     });
   },
 });

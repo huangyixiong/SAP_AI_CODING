@@ -15,7 +15,7 @@ const router = Router();
 router.post('/ts/stream', llmRateLimiter, requirePermission('ts_reverse'), generateTS);
 router.post('/fs/stream', llmRateLimiter, requirePermission('fs_reverse'), generateFS);
 router.post('/requirement-fs/stream', llmRateLimiter, requirePermission('spec_gen'), generateFSFromRequirement);
-router.post('/reference-prompt/stream', llmRateLimiter, generateReferencePrompt);
-router.post('/pseudocode/stream', llmRateLimiter, generatePseudocode);
+router.post('/reference-prompt/stream', llmRateLimiter, requirePermission('spec_gen'), generateReferencePrompt);
+router.post('/pseudocode/stream', llmRateLimiter, requirePermission('ts_reverse'), generatePseudocode);
 
 export default router;
