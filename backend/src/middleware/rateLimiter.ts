@@ -88,3 +88,18 @@ export const writeBackRateLimiter = rateLimit({
     });
   },
 });
+
+// 登录暴力破解防护
+export const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logger.warn('[RateLimit] Login brute-force attempt', { ip: req.ip });
+    res.status(429).json({
+      success: false,
+      error: { code: 'RATE_LIMIT_EXCEEDED', message: '登录尝试过于频繁，请15分钟后重试' },
+    });
+  },
+});
