@@ -16,7 +16,8 @@ export interface DefaultPrompt {
 export interface DefaultPromptsResponse {
   ts: DefaultPrompt;
   fs: DefaultPrompt;
-  code: DefaultPrompt;
+  requirementFs: DefaultPrompt;
+  referenceCodePrompt: DefaultPrompt;
 }
 
 /**

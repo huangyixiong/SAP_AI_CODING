@@ -171,7 +171,7 @@ export default function CustomPromptPanel({
           </div>
         ) : defaultPrompts ? (
           <Tabs defaultActiveKey="ts" tabPosition="left">
-            <TabPane tab={defaultPrompts.ts.name} key="ts">
+            <TabPane tab="技术规格(TS)" key="ts">
               <div style={{ padding: EYSpacing.md }}>
                 <Text type="secondary" style={{ display: 'block', marginBottom: EYSpacing.sm }}>
                   {defaultPrompts.ts.description}
@@ -188,7 +188,7 @@ export default function CustomPromptPanel({
                 />
               </div>
             </TabPane>
-            <TabPane tab={defaultPrompts.fs.name} key="fs">
+            <TabPane tab="功能规格(FS·源码)" key="fs">
               <div style={{ padding: EYSpacing.md }}>
                 <Text type="secondary" style={{ display: 'block', marginBottom: EYSpacing.sm }}>
                   {defaultPrompts.fs.description}
@@ -205,13 +205,30 @@ export default function CustomPromptPanel({
                 />
               </div>
             </TabPane>
-            <TabPane tab={defaultPrompts.code.name} key="code">
+            <TabPane tab={defaultPrompts.requirementFs.name} key="requirementFs">
               <div style={{ padding: EYSpacing.md }}>
                 <Text type="secondary" style={{ display: 'block', marginBottom: EYSpacing.sm }}>
-                  {defaultPrompts.code.description}
+                  {defaultPrompts.requirementFs.description}
                 </Text>
                 <TextArea
-                  value={defaultPrompts.code.content}
+                  value={defaultPrompts.requirementFs.content}
+                  readOnly
+                  autoSize={{ minRows: 15, maxRows: 25 }}
+                  style={{
+                    fontFamily: 'Consolas, Monaco, monospace',
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                  }}
+                />
+              </div>
+            </TabPane>
+            <TabPane tab={defaultPrompts.referenceCodePrompt.name} key="referenceCodePrompt">
+              <div style={{ padding: EYSpacing.md }}>
+                <Text type="secondary" style={{ display: 'block', marginBottom: EYSpacing.sm }}>
+                  {defaultPrompts.referenceCodePrompt.description}
+                </Text>
+                <TextArea
+                  value={defaultPrompts.referenceCodePrompt.content}
                   readOnly
                   autoSize={{ minRows: 15, maxRows: 25 }}
                   style={{

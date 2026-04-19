@@ -3,7 +3,8 @@ import ClaudeService from './ClaudeService';
 import WritebackMemoryService from './WritebackMemoryService';
 import { TS_SYSTEM_PROMPT, buildTSUserMessage } from '../prompts/ts.prompt';
 import { FS_SYSTEM_PROMPT, buildFSUserMessage } from '../prompts/fs.prompt';
-import { CODE_SYSTEM_PROMPT, buildCodeUserMessage } from '../prompts/code.prompt';
+import { REQUIREMENT_FS_SYSTEM_PROMPT, buildRequirementFSUserMessage } from '../prompts/requirement-fs.prompt';
+import { REFERENCE_CODE_PROMPT_SYSTEM, buildReferenceCodePromptUserMessage } from '../prompts/reference-code-prompt.prompt';
 import { ActivationMode, WriteBackResult } from '../types/api.types';
 import logger from '../lib/logger';
 import { SAPConnectionError, LLMError } from '../errors';
@@ -27,11 +28,17 @@ export interface GenerateFromSAPOptions {
   customSystemPrompt?: string; // 新增：自定义系统提示词
 }
 
-export interface GenerateCodeOptions {
-  fsContent: string;
-  targetProgramName?: string;
+export interface GenerateFSFromRequirementOptions {
+  requirementText: string;
+  templateContent?: string;
+  customSystemPrompt?: string;
   signal?: AbortSignal;
-  customSystemPrompt?: string; // 新增：自定义系统提示词
+}
+
+export interface GenerateReferencePromptOptions {
+  fsContent: string;
+  customSystemPrompt?: string;
+  signal?: AbortSignal;
 }
 
 export interface WriteBackOptions {
@@ -219,31 +226,29 @@ class DocumentService {
     }
   }
 
-  async *generateCodeFromFS(options: GenerateCodeOptions): AsyncGenerator<{
+  async *generateFSFromRequirement(options: GenerateFSFromRequirementOptions): AsyncGenerator<{
     type: string;
     [key: string]: unknown;
   }> {
-    const { fsContent, targetProgramName, signal, customSystemPrompt } = options;
+    const { requirementText, templateContent, customSystemPrompt, signal } = options;
 
-    logger.info('[DocumentService] Starting code generation from FS', { 
-      targetProgramName,
-      usingCustomPrompt: !!customSystemPrompt?.trim()
+    logger.info('[DocumentService] Starting FS from requirement', {
+      length: requirementText.length,
+      usingCustomPrompt: !!customSystemPrompt?.trim(),
     });
-    yield { type: 'start', targetProgramName };
+    yield { type: 'start', mode: 'requirement-fs' };
 
     try {
-      const userMessage = buildCodeUserMessage(targetProgramName || 'ZNEW_PROGRAM', fsContent);
-
-      // 使用自定义提示词或默认提示词
-      let systemPrompt = customSystemPrompt?.trim() || CODE_SYSTEM_PROMPT;
-      const memoryAddon = this.memoryService.getPromptAddon();
-      if (memoryAddon) {
-        systemPrompt += memoryAddon;
+      let systemPrompt = customSystemPrompt?.trim() || REQUIREMENT_FS_SYSTEM_PROMPT;
+      if (templateContent) {
+        systemPrompt += `\n\n## 模板格式要求（严格遵守）\n以下是用户提供的 Word 模板内容，请严格按照此模板的章节结构、标题层级、表格格式生成文档，不要增减章节：\n\n${templateContent.slice(0, 6000)}`;
       }
+
+      const userMessage = buildRequirementFSUserMessage(requirementText);
+      yield { type: 'generating', message: '正在根据需求生成 FS...' };
 
       let totalChars = 0;
       let chunkCount = 0;
-      
       for await (const chunk of this.claudeService.streamGenerate({
         systemPrompt,
         userMessage,
@@ -254,11 +259,59 @@ class DocumentService {
         yield { type: 'chunk', content: chunk };
       }
 
-      logger.info('[DocumentService] Code generation completed', { totalChars, chunks: chunkCount });
+      logger.info('[DocumentService] FS from requirement completed', { totalChars, chunks: chunkCount });
       yield { type: 'done', totalChars };
     } catch (error) {
-      logger.error('[DocumentService] Code generation failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.error('[DocumentService] FS from requirement failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof LLMError) {
+        yield { type: 'error', message: `AI 服务调用失败：${(error as Error).message}` };
+        return;
+      }
+      yield { type: 'error', message: `生成失败：${(error as Error).message}` };
+    }
+  }
+
+  async *generateReferencePromptFromFS(options: GenerateReferencePromptOptions): AsyncGenerator<{
+    type: string;
+    [key: string]: unknown;
+  }> {
+    const { fsContent, customSystemPrompt, signal } = options;
+
+    logger.info('[DocumentService] Starting reference prompt from FS', {
+      fsLength: fsContent.length,
+      usingCustomPrompt: !!customSystemPrompt?.trim(),
+    });
+    yield { type: 'start', mode: 'reference-prompt' };
+
+    try {
+      let systemPrompt = customSystemPrompt?.trim() || REFERENCE_CODE_PROMPT_SYSTEM;
+      const memoryAddon = this.memoryService.getPromptAddon();
+      if (memoryAddon) {
+        systemPrompt += memoryAddon;
+      }
+
+      const userMessage = buildReferenceCodePromptUserMessage(fsContent);
+      yield { type: 'generating', message: '正在根据 FS 生成代码参考提示词...' };
+
+      let totalChars = 0;
+      let chunkCount = 0;
+      for await (const chunk of this.claudeService.streamGenerate({
+        systemPrompt,
+        userMessage,
+        signal,
+      })) {
+        totalChars += chunk.length;
+        chunkCount++;
+        yield { type: 'chunk', content: chunk };
+      }
+
+      logger.info('[DocumentService] Reference prompt completed', { totalChars, chunks: chunkCount });
+      yield { type: 'done', totalChars };
+    } catch (error) {
+      logger.error('[DocumentService] Reference prompt failed', {
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

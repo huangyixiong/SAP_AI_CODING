@@ -123,13 +123,13 @@ export async function generateFS(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function generateCode(req: Request, res: Response): Promise<void> {
+export async function generateFSFromRequirement(req: Request, res: Response): Promise<void> {
   initSSE(res);
 
   const schema = z.object({
-    fsContent: z.string().trim().min(1).max(60000),
-    targetProgramName: z.string().trim().min(1).max(40),
-    customSystemPrompt: z.string().optional(), // 新增
+    requirementText: z.string().trim().min(1, '需求描述不能为空').max(80000),
+    templateContent: z.string().optional(),
+    customSystemPrompt: z.string().optional(),
   });
 
   const parseResult = schema.safeParse(req.body);
@@ -139,16 +139,53 @@ export async function generateCode(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const { fsContent, targetProgramName, customSystemPrompt } = parseResult.data;
+  const { requirementText, templateContent, customSystemPrompt } = parseResult.data;
   const abortController = makeAbortController(req, res);
 
   try {
     const docService = new DocumentService();
-    for await (const event of docService.generateCodeFromFS({
-      fsContent,
-      targetProgramName,
+    for await (const event of docService.generateFSFromRequirement({
+      requirementText,
+      templateContent,
+      customSystemPrompt,
       signal: abortController.signal,
-      customSystemPrompt, // 传递
+    })) {
+      if (res.writableEnded) break;
+      sendSSE(res, event);
+    }
+  } catch (err) {
+    if (!res.writableEnded) {
+      sendSSE(res, { type: 'error', message: (err as Error).message });
+    }
+  } finally {
+    if (!res.writableEnded) res.end();
+  }
+}
+
+export async function generateReferencePrompt(req: Request, res: Response): Promise<void> {
+  initSSE(res);
+
+  const schema = z.object({
+    fsContent: z.string().trim().min(1, 'FS 内容不能为空').max(60000),
+    customSystemPrompt: z.string().optional(),
+  });
+
+  const parseResult = schema.safeParse(req.body);
+  if (!parseResult.success) {
+    sendSSE(res, { type: 'error', message: '参数错误：' + parseResult.error.message });
+    res.end();
+    return;
+  }
+
+  const { fsContent, customSystemPrompt } = parseResult.data;
+  const abortController = makeAbortController(req, res);
+
+  try {
+    const docService = new DocumentService();
+    for await (const event of docService.generateReferencePromptFromFS({
+      fsContent,
+      customSystemPrompt,
+      signal: abortController.signal,
     })) {
       if (res.writableEnded) break;
       sendSSE(res, event);

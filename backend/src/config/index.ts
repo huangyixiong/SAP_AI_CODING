@@ -37,4 +37,15 @@ export const config = {
       process.env.MCP_SERVER_PATH || '../mcp-abap-abap-adt-api/dist/index.js'
     ),
   },
+
+  /** 可选：配置 SMTP 后「规格·邮件外发」可用 */
+  mail: {
+    enabled: !!(process.env.SMTP_HOST && process.env.MAIL_FROM),
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === '1' || process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    password: process.env.SMTP_PASSWORD || '',
+    from: process.env.MAIL_FROM || '',
+  },
 };

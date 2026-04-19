@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FileTextOutlined,
   FormOutlined,
-  CodeOutlined,
+  BranchesOutlined,
   UserOutlined,
   GlobalOutlined,
   DatabaseOutlined,
@@ -24,33 +24,40 @@ type MenuItem = Required<MenuProps>['items'][number];
 
 const menuItems: MenuItem[] = [
   {
-    key: 'core',
-    label: '核心功能',
+    key: 'spec-hub',
+    label: '需求规格',
     type: 'group',
     children: [
-      { 
-        key: '/implementation/sap-ts', 
-        icon: <FileTextOutlined />, 
-        label: '代码反向工程(TS)' 
+      {
+        key: '/workspace/spec',
+        icon: <BranchesOutlined />,
+        label: '需求规格工作台',
       },
-      { 
-        key: '/implementation/sap-fs', 
-        icon: <FormOutlined />, 
-        label: '代码反向工程(FS)' 
+    ],
+  },
+  {
+    key: 'reverse',
+    label: '源码规格',
+    type: 'group',
+    children: [
+      {
+        key: '/implementation/sap-ts',
+        icon: <FileTextOutlined />,
+        label: '技术规格反向工程(TS)',
       },
-      { 
-        key: '/implementation/fs-code', 
-        icon: <CodeOutlined />, 
-        label: '规格驱动代码生成' 
+      {
+        key: '/implementation/sap-fs',
+        icon: <FormOutlined />,
+        label: '功能规格反向工程(FS)',
       },
     ],
   },
 ] as MenuItem[];
 
 const PAGE_LABELS: Record<string, string> = {
-  '/implementation/sap-ts': '代码反向工程 - 技术规格书',
-  '/implementation/sap-fs': '代码反向工程 - 功能规格书',
-  '/implementation/fs-code': '规格驱动代码生成',
+  '/workspace/spec': '需求规格工作台',
+  '/implementation/sap-ts': '技术规格反向工程(TS)',
+  '/implementation/sap-fs': '功能规格反向工程(FS)',
 };
 
 interface InfoRowProps {

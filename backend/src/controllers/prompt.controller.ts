@@ -3,7 +3,8 @@ import { z } from 'zod';
 import ClaudeService from '../services/ClaudeService';
 import { TS_SYSTEM_PROMPT } from '../prompts/ts.prompt';
 import { FS_SYSTEM_PROMPT } from '../prompts/fs.prompt';
-import { CODE_SYSTEM_PROMPT } from '../prompts/code.prompt';
+import { REQUIREMENT_FS_SYSTEM_PROMPT } from '../prompts/requirement-fs.prompt';
+import { REFERENCE_CODE_PROMPT_SYSTEM } from '../prompts/reference-code-prompt.prompt';
 
 // SSE helper
 function sendSSE(res: Response, data: object): void {
@@ -34,13 +35,18 @@ export function getDefaultPrompts(req: Request, res: Response): void {
         },
         fs: {
           name: '功能规格书(FS)',
-          description: '从SAP ABAP源码生成功能规格书的默认提示词',
+          description: '从 SAP ABAP 源码生成功能规格书的默认提示词',
           content: FS_SYSTEM_PROMPT,
         },
-        code: {
-          name: 'ABAP代码生成',
-          description: '从功能规格书生成ABAP代码的默认提示词',
-          content: CODE_SYSTEM_PROMPT,
+        requirementFs: {
+          name: '规格·需求成稿',
+          description: '需求规格工作台：由业务需求描述生成 FS 的默认提示词',
+          content: REQUIREMENT_FS_SYSTEM_PROMPT,
+        },
+        referenceCodePrompt: {
+          name: '规格·开发提示',
+          description: '需求规格工作台：由 FS 生成代码参考提示词的默认提示词',
+          content: REFERENCE_CODE_PROMPT_SYSTEM,
         },
       },
     });
