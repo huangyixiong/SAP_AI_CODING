@@ -49,10 +49,6 @@ export const config = {
     from: process.env.MAIL_FROM || '',
   },
 
-  db: {
-    url: process.env.DATABASE_URL || '',
-  },
-
   jwt: {
     secret: requireEnv('JWT_SECRET'),
     expiresIn: process.env.JWT_EXPIRES_IN || '8h',
