@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  username           String   @unique
+  fullName           String
+  email              String   @unique
+  hashedPassword     String
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  userRoles       UserRole[]
+  emailRecipients EmailRecipient[]
+  refreshTokens   RefreshToken[]
+  emailLogs       EmailLog[]
+}
+
+model RefreshToken {
+  id          Int       @id @default(autoincrement())
+  tokenPrefix String    @unique
+  tokenHash   String
+  userId      Int
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  recipients      EmailRecipient[]
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Permission {
+  id          Int    @id @default(autoincrement())
+  code        String @unique
+  description String?
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model SmtpConfig {
+  id        Int      @id @default(autoincrement())
+  host      String
+  port      Int      @default(587)
+  secure    Boolean  @default(false)
+  user      String?
+  password  String?
+  fromAddr  String
+  fromName  String?
+  updatedAt DateTime @updatedAt
+}
+
+model EmailRecipient {
+  id        Int      @id @default(autoincrement())
+  email     String
+  name      String?
+  roleId    Int
+  userId    Int?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  role Role  @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([email, roleId])
+}
+
+model EmailLog {
+  id          Int       @id @default(autoincrement())
+  toAddrs     String
+  subject     String
+  status      String
+  errorMsg    String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  createdById Int?
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+}
