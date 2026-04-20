@@ -12,6 +12,9 @@ import {
   TranslationOutlined,
   MenuOutlined,
   LogoutOutlined,
+  TeamOutlined,
+  SafetyOutlined,
+  MailOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../../store/useAppStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -25,37 +28,45 @@ const { useBreakpoint } = Grid;
 
 type MenuItem = Required<MenuProps>['items'][number];
 
-const menuItems: MenuItem[] = [
-  {
-    key: 'spec-hub',
-    label: '需求规格',
-    type: 'group',
-    children: [
-      {
-        key: '/workspace/spec',
-        icon: <BranchesOutlined />,
-        label: '需求规格工作台',
-      },
-    ],
-  },
-  {
-    key: 'reverse',
-    label: '源码规格',
-    type: 'group',
-    children: [
-      {
-        key: '/implementation/sap-ts',
-        icon: <FileTextOutlined />,
-        label: '技术规格反向工程(TS)',
-      },
-      {
-        key: '/implementation/sap-fs',
-        icon: <FormOutlined />,
-        label: '功能规格反向工程(FS)',
-      },
-    ],
-  },
-] as MenuItem[];
+function buildMenuItems(isAdmin: boolean): MenuItem[] {
+  return [
+    {
+      key: 'spec-hub',
+      label: '需求规格',
+      type: 'group',
+      children: [
+        {
+          key: '/workspace/spec',
+          icon: <BranchesOutlined />,
+          label: '需求规格工作台',
+        },
+      ],
+    },
+    {
+      key: 'reverse',
+      label: '源码规格',
+      type: 'group',
+      children: [
+        {
+          key: '/implementation/sap-ts',
+          icon: <FileTextOutlined />,
+          label: '技术规格反向工程(TS)',
+        },
+        {
+          key: '/implementation/sap-fs',
+          icon: <FormOutlined />,
+          label: '功能规格反向工程(FS)',
+        },
+      ],
+    },
+    ...(isAdmin ? [
+      { type: 'divider' as const },
+      { key: '/admin/users', label: '用户管理', icon: <TeamOutlined /> },
+      { key: '/admin/roles', label: '角色权限', icon: <SafetyOutlined /> },
+      { key: '/admin/mail-config', label: '邮件配置', icon: <MailOutlined /> },
+    ] : []),
+  ] as MenuItem[];
+}
 
 const PAGE_LABELS: Record<string, string> = {
   '/workspace/spec': '需求规格工作台',
@@ -121,7 +132,8 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { sap, setSAPInfo } = useAppStore();
-  const { user, clearAuth } = useAuthStore();
+  const { user, clearAuth, isAdmin } = useAuthStore();
+  const menuItems = buildMenuItems(isAdmin());
   const screens = useBreakpoint();
   const isMobile = !screens.lg;
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
