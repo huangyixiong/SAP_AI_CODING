@@ -38,6 +38,17 @@ export async function updateRole(id: number, data: { name?: string; description?
 export async function assignPermissions(roleId: number, permissionIds: number[]) {
   const role = await prisma.role.findUnique({ where: { id: roleId } });
   if (!role) throw new AppError('NOT_FOUND', '角色不存在', 404);
+
+  if (permissionIds.length > 0) {
+    const found = await prisma.permission.findMany({
+      where: { id: { in: permissionIds } },
+      select: { id: true },
+    });
+    if (found.length !== permissionIds.length) {
+      throw new AppError('BAD_REQUEST', '存在无效的权限ID', 400);
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.rolePermission.deleteMany({ where: { roleId } });
     if (permissionIds.length > 0) {

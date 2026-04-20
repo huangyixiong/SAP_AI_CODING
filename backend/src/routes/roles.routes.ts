@@ -7,6 +7,8 @@ import * as RoleService from '../services/RoleService';
 const router = Router();
 router.use(requireRole('admin'));
 
+const idParam = z.coerce.number().int().positive();
+
 router.get('/', asyncHandler(async (_req, res) => {
   res.json(await RoleService.listRoles());
 }));
@@ -28,14 +30,14 @@ router.put('/:id', asyncHandler(async (req, res) => {
     name: z.string().min(2).optional(),
     description: z.string().optional(),
   }).parse(req.body);
-  res.json(await RoleService.updateRole(Number(req.params.id), data));
+  res.json(await RoleService.updateRole(idParam.parse(req.params.id), data));
 }));
 
 router.put('/:id/permissions', asyncHandler(async (req, res) => {
   const { permissionIds } = z.object({
     permissionIds: z.array(z.number()),
   }).parse(req.body);
-  await RoleService.assignPermissions(Number(req.params.id), permissionIds);
+  await RoleService.assignPermissions(idParam.parse(req.params.id), permissionIds);
   res.json({ success: true });
 }));
 

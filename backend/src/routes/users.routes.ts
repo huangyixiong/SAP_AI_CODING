@@ -7,6 +7,8 @@ import * as UserService from '../services/UserService';
 const router = Router();
 router.use(requireRole('admin'));
 
+const idParam = z.coerce.number().int().positive();
+
 router.get('/', asyncHandler(async (req, res) => {
   const { page, limit } = z.object({
     page: z.coerce.number().int().positive().default(1),
@@ -29,17 +31,17 @@ router.put('/:id', asyncHandler(async (req, res) => {
     email: z.string().email().optional(),
     isActive: z.boolean().optional(),
   }).parse(req.body);
-  res.json(await UserService.updateUser(Number(req.params.id), data));
+  res.json(await UserService.updateUser(idParam.parse(req.params.id), data));
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {
-  await UserService.deactivateUser(Number(req.params.id));
+  await UserService.deactivateUser(idParam.parse(req.params.id));
   res.json({ success: true });
 }));
 
 router.put('/:id/roles', asyncHandler(async (req, res) => {
   const { roleIds } = z.object({ roleIds: z.array(z.number()) }).parse(req.body);
-  await UserService.assignRoles(Number(req.params.id), roleIds);
+  await UserService.assignRoles(idParam.parse(req.params.id), roleIds);
   res.json({ success: true });
 }));
 
