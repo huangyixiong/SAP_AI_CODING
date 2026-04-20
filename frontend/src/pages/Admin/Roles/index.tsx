@@ -38,8 +38,9 @@ export default function AdminRoles() {
   };
 
   const handleAssignPerms = async (values: { permissionIds: number[] }) => {
+    if (!permOpen.roleId) return;
     try {
-      await rolesApi.assignPermissions(permOpen.roleId!, values.permissionIds);
+      await rolesApi.assignPermissions(permOpen.roleId, values.permissionIds);
       message.success('权限已更新');
       setPermOpen({ open: false, roleId: null }); load();
     } catch { message.error('操作失败'); }

@@ -72,6 +72,9 @@ const PAGE_LABELS: Record<string, string> = {
   '/workspace/spec': '需求规格工作台',
   '/implementation/sap-ts': '技术规格反向工程(TS)',
   '/implementation/sap-fs': '功能规格反向工程(FS)',
+  '/admin/users': '用户管理',
+  '/admin/roles': '角色权限',
+  '/admin/mail-config': '邮件配置',
 };
 
 interface InfoRowProps {

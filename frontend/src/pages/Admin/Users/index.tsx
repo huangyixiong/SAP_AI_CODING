@@ -31,10 +31,10 @@ export default function AdminUsers() {
   };
 
   useEffect(() => {
-    load();
-    rolesApi.list().then((r) => setRoles(r.data)).catch(() => {});
+    load(1);
+    rolesApi.list().then((r) => setRoles(r.data)).catch(() => { message.error('加载角色列表失败'); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // intentional: run only on mount; load is stable within this render cycle
 
   const handleCreate = async (values: { username: string; fullName: string; email: string; password: string }) => {
     try {
@@ -57,8 +57,9 @@ export default function AdminUsers() {
   };
 
   const handleAssignRoles = async (values: { roleIds: number[] }) => {
+    if (!roleOpen.userId) return;
     try {
-      await usersApi.assignRoles(roleOpen.userId!, values.roleIds);
+      await usersApi.assignRoles(roleOpen.userId, values.roleIds);
       message.success('角色已更新');
       setRoleOpen({ open: false, userId: null }); load();
     } catch { message.error('操作失败'); }
