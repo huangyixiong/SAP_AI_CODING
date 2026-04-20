@@ -18,6 +18,12 @@ build/
 # SAP Configs (contains sensitive data)
 backend/src/config/sap-configs.json
 
+# Claude Code
+.claude/
+
+# Documentation (internal)
+docs/
+
 # IDE
 .vscode/
 .idea/
