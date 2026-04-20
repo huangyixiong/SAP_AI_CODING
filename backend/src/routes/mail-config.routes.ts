@@ -5,6 +5,10 @@ import { asyncHandler } from '../lib/asyncHandler';
 import prisma from '../lib/prisma';
 import EmailService from '../services/EmailService';
 import logger from '../lib/logger';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = Router();
 router.use(requireRole('admin'));
@@ -89,6 +93,75 @@ router.delete('/recipients/:id', asyncHandler(async (req, res) => {
   await prisma.emailRecipient.delete({ where: { id } });
   res.json({ success: true });
 }));
+
+// ── Bulk Import ───────────────────────────────────────────────────────────────
+
+router.post(
+  '/recipients/bulk-import',
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: '请上传文件' });
+      return;
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' });
+
+    if (rows.length === 0) {
+      res.json({ imported: 0, skipped: 0, errors: [] });
+      return;
+    }
+
+    const firstRow = rows[0];
+    if (!('邮箱' in firstRow) || !('角色' in firstRow)) {
+      res.status(400).json({ error: '缺少必要列：邮箱/角色' });
+      return;
+    }
+
+    const [allRoles, existingRecipients] = await Promise.all([
+      prisma.role.findMany(),
+      prisma.emailRecipient.findMany({ select: { email: true } }),
+    ]);
+    const roleMap = new Map(allRoles.map((r) => [r.name, r.id]));
+    const existingEmails = new Set(existingRecipients.map((r) => r.email.toLowerCase()));
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+      const email = String(row['邮箱'] ?? '').trim();
+      const name = String(row['姓名'] ?? '').trim() || undefined;
+      const roleName = String(row['角色'] ?? '').trim();
+
+      if (!email) {
+        errors.push(`第${rowNum}行：邮箱不能为空`);
+        continue;
+      }
+
+      if (existingEmails.has(email.toLowerCase())) {
+        skipped++;
+        continue;
+      }
+
+      const roleId = roleMap.get(roleName);
+      if (!roleId) {
+        errors.push(`第${rowNum}行：角色"${roleName}"不存在`);
+        continue;
+      }
+
+      await prisma.emailRecipient.create({ data: { email, name, roleId } });
+      existingEmails.add(email.toLowerCase());
+      imported++;
+    }
+
+    res.json({ imported, skipped, errors });
+  }),
+);
 
 // ── Email Logs ────────────────────────────────────────────────────────────────
 
