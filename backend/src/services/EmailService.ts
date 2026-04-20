@@ -34,13 +34,28 @@ class EmailService {
       params.referencePrompt?.trim() || '（未生成或为空）',
     ].join('\n');
 
-    const info = await transporter.sendMail({
-      from: cfg.fromName ? `"${cfg.fromName}" <${cfg.fromAddr}>` : cfg.fromAddr,
-      to: params.to.join(', '),
-      cc: params.cc?.length ? params.cc.join(', ') : undefined,
-      subject: params.subject,
-      text,
-    });
+    let info: Awaited<ReturnType<typeof transporter.sendMail>>;
+    try {
+      info = await transporter.sendMail({
+        from: cfg.fromName ? `"${cfg.fromName}" <${cfg.fromAddr}>` : cfg.fromAddr,
+        to: params.to.join(', '),
+        cc: params.cc?.length ? params.cc.join(', ') : undefined,
+        subject: params.subject,
+        text,
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      await prisma.emailLog.create({
+        data: {
+          toAddrs: JSON.stringify(params.to),
+          subject: params.subject,
+          status: 'failed',
+          errorMsg,
+          createdById: params.userId ?? null,
+        },
+      });
+      throw err;
+    }
 
     await prisma.emailLog.create({
       data: {

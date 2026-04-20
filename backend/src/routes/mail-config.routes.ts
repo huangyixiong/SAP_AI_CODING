@@ -56,7 +56,9 @@ router.post('/smtp/test', asyncHandler(async (req, res) => {
 // ── Recipients ────────────────────────────────────────────────────────────────
 
 router.get('/recipients', asyncHandler(async (req, res) => {
-  const roleId = req.query.roleId ? Number(req.query.roleId) : undefined;
+  const { roleId } = z.object({
+    roleId: z.coerce.number().int().positive().optional(),
+  }).parse(req.query);
   const recipients = await prisma.emailRecipient.findMany({
     where: roleId ? { roleId } : {},
     include: { role: true },
