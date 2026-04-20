@@ -54,13 +54,20 @@ export async function updateUser(
 }
 
 export async function deactivateUser(id: number) {
-  const user = await prisma.user.findUnique({ where: { id } });
-  if (!user) throw new AppError('NOT_FOUND', '用户不存在', 404);
-  await prisma.user.update({ where: { id }, data: { isActive: false } });
-  await prisma.refreshToken.updateMany({
-    where: { userId: id, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: { isActive: false } });
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+      throw new AppError('NOT_FOUND', '用户不存在', 404);
+    }
+    throw e;
+  }
 }
 
 export async function assignRoles(userId: number, roleIds: number[]) {
