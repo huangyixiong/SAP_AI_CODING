@@ -1,6 +1,12 @@
 import axios, { AxiosInstance } from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    _retry?: boolean;
+  }
+}
+
 const apiClient: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 30000,
@@ -38,7 +44,12 @@ apiClient.interceptors.response.use(
         .then((res) => {
           const { accessToken, refreshToken } = res.data;
           const { user } = useAuthStore.getState();
-          useAuthStore.getState().setAuth(accessToken, user!);
+          if (!user) {
+            useAuthStore.getState().clearAuth();
+            window.location.href = '/login';
+            return Promise.reject(new Error('Session expired'));
+          }
+          useAuthStore.getState().setAuth(accessToken, user);
           localStorage.setItem('refreshToken', refreshToken);
           return accessToken;
         })
