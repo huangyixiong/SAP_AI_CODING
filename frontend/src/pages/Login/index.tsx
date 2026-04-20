@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { authApi } from '../../api/auth.api';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -18,9 +19,10 @@ export default function LoginPage() {
       setAuth(accessToken, user);
       navigate(user.mustChangePassword ? '/change-password' : '/', { replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '登录失败';
-      const axiosMsg = (err as any)?.response?.data?.error?.message;
-      message.error(axiosMsg || msg);
+      const axiosMsg = axios.isAxiosError(err)
+        ? (err.response?.data as { error?: { message?: string } })?.error?.message
+        : undefined;
+      message.error(axiosMsg || '登录失败');
     } finally {
       setLoading(false);
     }

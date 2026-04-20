@@ -21,7 +21,8 @@ export default function PrivateRoute({ children }: { children: React.ReactNode }
       })
       .catch(() => clearAuth())
       .finally(() => setChecking(false));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentional: run only on mount; setAuth/clearAuth are stable Zustand refs
 
   if (checking) return <Spin fullscreen tip="加载中..." />;
   if (!accessToken) return <Navigate to="/login" replace />;

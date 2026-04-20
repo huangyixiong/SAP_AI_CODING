@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { authApi } from '../../api/auth.api';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -16,7 +17,9 @@ export default function ChangePasswordPage() {
       useAuthStore.getState().clearAuth();
       navigate('/login', { replace: true });
     } catch (err: unknown) {
-      const axiosMsg = (err as any)?.response?.data?.error?.message;
+      const axiosMsg = axios.isAxiosError(err)
+        ? (err.response?.data as { error?: { message?: string } })?.error?.message
+        : undefined;
       message.error(axiosMsg || '修改失败');
     } finally {
       setLoading(false);
