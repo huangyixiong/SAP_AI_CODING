@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AppError } from '../errors';
 
@@ -38,14 +39,23 @@ export async function updateUser(
   id: number,
   data: Partial<{ fullName: string; email: string; isActive: boolean }>
 ) {
-  const user = await prisma.user.update({
-    where: { id }, data,
-    include: { userRoles: { include: { role: true } } },
-  });
-  return formatUser(user);
+  try {
+    const user = await prisma.user.update({
+      where: { id }, data,
+      include: { userRoles: { include: { role: true } } },
+    });
+    return formatUser(user);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+      throw new AppError('NOT_FOUND', '用户不存在', 404);
+    }
+    throw e;
+  }
 }
 
 export async function deactivateUser(id: number) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new AppError('NOT_FOUND', '用户不存在', 404);
   await prisma.user.update({ where: { id }, data: { isActive: false } });
   await prisma.refreshToken.updateMany({
     where: { userId: id, revokedAt: null },
@@ -54,12 +64,16 @@ export async function deactivateUser(id: number) {
 }
 
 export async function assignRoles(userId: number, roleIds: number[]) {
-  await prisma.userRole.deleteMany({ where: { userId } });
-  if (roleIds.length > 0) {
-    await prisma.userRole.createMany({
-      data: roleIds.map((roleId) => ({ userId, roleId })),
-    });
-  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('NOT_FOUND', '用户不存在', 404);
+  await prisma.$transaction(async (tx) => {
+    await tx.userRole.deleteMany({ where: { userId } });
+    if (roleIds.length > 0) {
+      await tx.userRole.createMany({
+        data: roleIds.map((roleId) => ({ userId, roleId })),
+      });
+    }
+  });
 }
 
 function formatUser(user: any) {

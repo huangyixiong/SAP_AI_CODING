@@ -8,8 +8,10 @@ const router = Router();
 router.use(requireRole('admin'));
 
 router.get('/', asyncHandler(async (req, res) => {
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
+  const { page, limit } = z.object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+  }).parse(req.query);
   res.json(await UserService.listUsers(page, limit));
 }));
 
