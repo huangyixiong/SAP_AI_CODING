@@ -1,10 +1,61 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
+import { useAuthStore } from '../store/useAuthStore';
 
-const apiClient = axios.create({
+const apiClient: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// Attach access token to every request
+apiClient.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Handle 401: try refresh, else redirect to login
+let refreshing: Promise<string> | null = null;
+
+apiClient.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
+    }
+
+    const raw = localStorage.getItem('refreshToken');
+    if (!raw) {
+      useAuthStore.getState().clearAuth();
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
+    if (!refreshing) {
+      refreshing = apiClient
+        .post<{ accessToken: string; refreshToken: string }>('/auth/refresh', { refreshToken: raw })
+        .then((res) => {
+          const { accessToken, refreshToken } = res.data;
+          const { user } = useAuthStore.getState();
+          useAuthStore.getState().setAuth(accessToken, user!);
+          localStorage.setItem('refreshToken', refreshToken);
+          return accessToken;
+        })
+        .catch(() => {
+          useAuthStore.getState().clearAuth();
+          window.location.href = '/login';
+          return Promise.reject(new Error('Session expired'));
+        })
+        .finally(() => { refreshing = null; });
+    }
+
+    original._retry = true;
+    const newToken = await refreshing;
+    original.headers.Authorization = `Bearer ${newToken}`;
+    return apiClient(original);
+  }
+);
 
 export default apiClient;
 
@@ -18,9 +69,13 @@ export function createSSEStream(
 ): AbortController {
   const controller = new AbortController();
 
+  const token = useAuthStore.getState().accessToken;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
     signal: controller.signal,
   })
