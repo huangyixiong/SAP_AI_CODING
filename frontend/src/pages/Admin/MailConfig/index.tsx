@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Tabs, Form, Input, InputNumber, Switch, Button, Table, Modal, message, Space, Popconfirm, Select, Tag } from 'antd';
+import { useEffect, useState } from 'react';
+import { Tabs, Form, Input, InputNumber, Switch, Button, Table, Modal, message, Space, Popconfirm, Select, Tag, Upload } from 'antd';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import { mailConfigApi } from '../../../api/mail-config.api';
 import { rolesApi } from '../../../api/roles.api';
+import apiClient from '../../../api/client';
 
 interface Role { id: number; name: string; }
 interface Recipient { id: number; email: string; name?: string; role: Role; isActive: boolean; }
@@ -75,6 +78,12 @@ function RecipientsTab() {
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
 
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    imported: number; skipped: number; errors: string[];
+  } | null>(null);
+
   const load = async () => {
     try {
       const [r, ro] = await Promise.all([mailConfigApi.getRecipients(), rolesApi.list()]);
@@ -103,6 +112,40 @@ function RecipientsTab() {
     } catch { message.error('删除失败'); }
   };
 
+  const handleDownloadTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['邮箱（必填）', '姓名（可选）', '角色（必填，需与系统角色名精确匹配）'],
+      ['example@company.com', '张三', '开发人员'],
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([buffer], { type: 'application/octet-stream' }), '收件人导入模板.xlsx');
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiClient.post<{ imported: number; skipped: number; errors: string[] }>(
+        '/mail-config/recipients/bulk-import',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      setImportResult(res.data);
+      if (res.data.imported > 0) load();
+    } catch (e) {
+      const msg = axios.isAxiosError(e)
+        ? (e.response?.data as { error?: string })?.error : undefined;
+      message.error(msg || '导入失败');
+    } finally {
+      setImporting(false);
+    }
+    return false;
+  };
+
   const columns = [
     { title: '邮箱', dataIndex: 'email' },
     { title: '姓名', dataIndex: 'name' },
@@ -116,10 +159,13 @@ function RecipientsTab() {
 
   return (
     <>
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
         <Button type="primary" onClick={() => setOpen(true)}>添加收件人</Button>
+        <Button onClick={() => { setImportOpen(true); setImportResult(null); }}>📥 批量导入 Excel</Button>
+        <Button onClick={handleDownloadTemplate}>📄 下载模板</Button>
       </div>
       <Table rowKey="id" dataSource={recipients} columns={columns} pagination={false} />
+
       <Modal title="添加收件人" open={open} onCancel={() => { setOpen(false); form.resetFields(); }} onOk={() => form.submit()}>
         <Form form={form} onFinish={handleAdd} layout="vertical">
           <Form.Item name="email" label="邮箱" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
@@ -128,6 +174,39 @@ function RecipientsTab() {
             <Select options={roles.map((r) => ({ label: r.name, value: r.id }))} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="批量导入收件人"
+        open={importOpen}
+        onCancel={() => setImportOpen(false)}
+        footer={<Button onClick={() => setImportOpen(false)}>关闭</Button>}
+      >
+        <Upload
+          accept=".xlsx,.xls"
+          showUploadList={false}
+          beforeUpload={handleImport}
+          disabled={importing}
+        >
+          <Button loading={importing}>
+            {importing ? '导入中…' : '选择 Excel 文件上传'}
+          </Button>
+        </Upload>
+
+        {importResult && (
+          <div style={{ marginTop: 16 }}>
+            <p>
+              导入 <strong>{importResult.imported}</strong> 条，
+              跳过 <strong>{importResult.skipped}</strong> 条（重复），
+              失败 <strong>{importResult.errors.length}</strong> 条
+            </p>
+            {importResult.errors.length > 0 && (
+              <ul style={{ paddingLeft: 16, color: '#ff4d4f', fontSize: 12 }}>
+                {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
       </Modal>
     </>
   );
