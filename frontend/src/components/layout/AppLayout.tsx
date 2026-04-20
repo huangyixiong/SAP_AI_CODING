@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Layout, Menu, Tooltip, Typography, Divider, ConfigProvider, Grid, Drawer, Button } from 'antd';
 import type { MenuProps } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   FileTextOutlined,
   FormOutlined,
@@ -11,8 +11,11 @@ import {
   DatabaseOutlined,
   TranslationOutlined,
   MenuOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import { useAppStore } from '../../store/useAppStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { authApi } from '../../api/auth.api';
 import { getHealthStatus } from '../../api/sap.api';
 import { EYColors, EYTypography, EYSpacing, EYBorderRadius, EYShadows, eyAntdTheme } from '../../styles/ey-theme';
 
@@ -114,17 +117,20 @@ function InfoRow({ icon, label, value }: InfoRowProps) {
   );
 }
 
-interface AppLayoutProps {
-  children: React.ReactNode;
-}
-
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { sap, setSAPInfo } = useAppStore();
+  const { user, clearAuth } = useAuthStore();
   const screens = useBreakpoint();
   const isMobile = !screens.lg;
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+  const handleLogout = async () => {
+    try { await authApi.logout(); } catch { /* ignore network errors */ }
+    clearAuth();
+    navigate('/login', { replace: true });
+  };
 
   useEffect(() => {
     const check = () => {
@@ -368,16 +374,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
               }}>
                 {pageLabel}
               </Text>
-              <div style={{ marginLeft: 'auto', display: isMobile ? 'none' : 'block' }}>
-                <Text style={{ 
-                  fontSize: EYTypography.sizes.xs, 
-                  color: EYColors.mediumGray, 
-                  fontStyle: 'italic', 
-                  letterSpacing: EYTypography.letterSpacings.wider,
-                  opacity: 0.8
-                }}>
-                  Building a better working world
-                </Text>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: EYSpacing.md }}>
+                {!isMobile && (
+                  <Text style={{
+                    fontSize: EYTypography.sizes.xs,
+                    color: EYColors.mediumGray,
+                    fontStyle: 'italic',
+                    letterSpacing: EYTypography.letterSpacings.wider,
+                    opacity: 0.8
+                  }}>
+                    Building a better working world
+                  </Text>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: EYColors.deepGray, fontSize: 13 }}>{user?.fullName}</span>
+                  <Button type="text" icon={<LogoutOutlined />} onClick={handleLogout}
+                    style={{ color: EYColors.deepGray }} title="退出登录" />
+                </div>
               </div>
             </div>
           </div>
@@ -391,7 +404,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               minHeight: 'calc(100vh - 72px)',
             }}
           >
-            {children}
+            <Outlet />
           </Content>
         </Layout>
       </Layout>
