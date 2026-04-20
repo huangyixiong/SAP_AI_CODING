@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Card,
   Button,
@@ -25,10 +25,14 @@ import CustomPromptPanel from '../../components/common/CustomPromptPanel';
 import { useSSE } from '../../hooks/useSSE';
 import { optimizePrompt } from '../../api/prompt.api';
 import { sendSpecDocuments } from '../../api/mail.api';
+import { mailConfigApi } from '../../api/mail-config.api';
+import { generateDocxBlob } from '../../lib/docxUtils';
 import { EYSpacing, EYTypography } from '../../styles/ey-theme';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
+
+interface RecipientOption { email: string; name?: string; roleName: string; }
 
 /** 需求规格工作台：规格·需求成稿、规格·开发提示、规格·邮件外发 */
 export default function SpecWorkspace() {
@@ -49,12 +53,22 @@ export default function SpecWorkspace() {
   const [customRefPrompt, setCustomRefPrompt] = useState('');
   const [optimizingRef, setOptimizingRef] = useState(false);
 
+  // Mail state
   const [mailTo, setMailTo] = useState<string[]>([]);
   const [mailCc, setMailCc] = useState<string[]>([]);
   const [mailSubject, setMailSubject] = useState(
     () => `需求规格交付 ${new Date().toLocaleDateString('zh-CN')}`
   );
   const [sending, setSending] = useState(false);
+
+  // Recipients list (loaded from mail-config)
+  const [recipients, setRecipients] = useState<RecipientOption[]>([]);
+
+  // docx blob cache
+  const docxBlobRef = useRef<Blob | null>(null);
+  const [docxSizeKB, setDocxSizeKB] = useState<number | null>(null);
+  const docxDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const FIVE_MB = 5 * 1024 * 1024;
 
   const [fsStatusMsg, setFsStatusMsg] = useState('');
   const [refStatusMsg, setRefStatusMsg] = useState('');
@@ -93,6 +107,42 @@ export default function SpecWorkspace() {
       else if (event.type === 'generating') setRefStatusMsg(String(event.message || '生成中…'));
     },
   });
+
+  // Load recipients on mount
+  useEffect(() => {
+    mailConfigApi.getRecipients().then((res) => {
+      const list: RecipientOption[] = (res.data as Array<{
+        email: string; name?: string; isActive: boolean; role: { name: string };
+      }>)
+        .filter((r) => r.isActive)
+        .map((r) => ({ email: r.email, name: r.name, roleName: r.role.name }));
+      setRecipients(list);
+    }).catch(() => {});
+  }, []);
+
+  // Invalidate docx cache immediately on fsContent change, regenerate after debounce
+  useEffect(() => {
+    docxBlobRef.current = null;
+    setDocxSizeKB(null);
+
+    if (!fsContent.trim()) return;
+
+    if (docxDebounceRef.current) clearTimeout(docxDebounceRef.current);
+    docxDebounceRef.current = setTimeout(async () => {
+      try {
+        const blob = await generateDocxBlob(fsContent);
+        docxBlobRef.current = blob;
+        setDocxSizeKB(Math.round(blob.size / 1024));
+      } catch {
+        docxBlobRef.current = null;
+        setDocxSizeKB(null);
+      }
+    }, 500);
+
+    return () => {
+      if (docxDebounceRef.current) clearTimeout(docxDebounceRef.current);
+    };
+  }, [fsContent]);
 
   const handleOptimizeFs = async () => {
     if (!customFsPrompt.trim()) {
@@ -165,19 +215,58 @@ export default function SpecWorkspace() {
     });
   };
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handleSelectToken = (
+    value: string[],
+    setter: (v: string[]) => void,
+    prev: string[]
+  ) => {
+    const added = value.find((v) => !prev.includes(v));
+    if (added && !EMAIL_REGEX.test(added)) {
+      message.warning('邮箱格式不正确');
+      setter(prev);
+      return;
+    }
+    setter(value);
+  };
+
   const handleSendMail = async () => {
+    if (!fsContent.trim()) {
+      message.error('FS 未生成，无法发送邮件');
+      return;
+    }
     if (mailTo.length === 0) {
       message.warning('请填写至少一个收件邮箱');
       return;
     }
+    if (!docxBlobRef.current) {
+      message.warning('FS 正在处理，请稍后再试');
+      return;
+    }
+    if (docxBlobRef.current.size > FIVE_MB) {
+      message.error('附件超过 5MB 限制，无法发送');
+      return;
+    }
+
     setSending(true);
     try {
+      const arrayBuffer = await docxBlobRef.current.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      let binary = '';
+      uint8.forEach((b) => { binary += String.fromCharCode(b); });
+      const attachmentBase64 = btoa(binary);
+
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const body = referencePrompt.trim() || '请查收附件中的功能规格文档，如有疑问请联系发件人。';
+
       await sendSpecDocuments({
         to: mailTo,
         ...(mailCc.length ? { cc: mailCc } : {}),
         subject: mailSubject.trim() || '需求规格交付',
-        fsContent: fsContent.trim(),
-        referencePrompt: referencePrompt.trim(),
+        body,
+        attachmentBase64,
+        attachmentName: `FS_需求规格_${today}.docx`,
       });
       message.success('邮件已发送');
     } catch (error) {
@@ -186,6 +275,28 @@ export default function SpecWorkspace() {
       setSending(false);
     }
   };
+
+  // Group recipients by role, 开发人员 first
+  const recipientGroups = (() => {
+    const grouped = new Map<string, RecipientOption[]>();
+    for (const r of recipients) {
+      if (!grouped.has(r.roleName)) grouped.set(r.roleName, []);
+      grouped.get(r.roleName)!.push(r);
+    }
+    const keys = Array.from(grouped.keys()).sort((a, b) =>
+      a === '开发人员' ? -1 : b === '开发人员' ? 1 : 0
+    );
+    return keys.map((role) => ({
+      label: role,
+      options: grouped.get(role)!.map((r) => ({
+        label: r.name ? `${r.name} <${r.email}>` : r.email,
+        value: r.email,
+      })),
+    }));
+  })();
+
+  const docxOverLimit = docxBlobRef.current !== null && docxBlobRef.current.size > FIVE_MB;
+  const sendDisabled = !fsContent.trim() || docxOverLimit;
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
@@ -398,42 +509,95 @@ export default function SpecWorkspace() {
 
       {/* 规格·邮件外发 */}
       <Card title="规格·邮件外发" size="small">
-        <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
-          将当前 FS 与代码参考提示词一并发送至指定邮箱。需在服务端配置 SMTP（SMTP_HOST、MAIL_FROM 等）。
-        </Text>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space direction="vertical" style={{ width: '100%' }} size="small">
+          {!referencePrompt.trim() && (
+            <Alert
+              type="warning"
+              showIcon
+              message="开发提示词未生成，将使用默认正文发送"
+            />
+          )}
+          {!fsContent.trim() && (
+            <Alert
+              type="error"
+              showIcon
+              message="FS 未生成，无法发送邮件"
+            />
+          )}
+
           <div>
-            <Text style={{ display: 'block', marginBottom: 4 }}>收件人</Text>
+            <Text style={{ display: 'block', marginBottom: 4 }}>
+              收件人 <span style={{ color: 'red' }}>*</span>
+            </Text>
             <Select
-              mode="tags"
+              mode="multiple"
               style={{ width: '100%' }}
-              placeholder="输入邮箱后回车"
-              tokenSeparators={[',', ';', ' ']}
+              placeholder="下拉选择或输入邮箱后回车"
+              options={recipientGroups}
               value={mailTo}
-              onChange={setMailTo}
+              onChange={(val) => handleSelectToken(val, setMailTo, mailTo)}
+              filterOption={(input, option) =>
+                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              tokenSeparators={[',', ';']}
             />
           </div>
+
           <div>
             <Text style={{ display: 'block', marginBottom: 4 }}>抄送（可选）</Text>
             <Select
-              mode="tags"
+              mode="multiple"
               style={{ width: '100%' }}
-              placeholder="可选"
-              tokenSeparators={[',', ';', ' ']}
+              placeholder="下拉选择或输入邮箱后回车"
+              options={recipientGroups}
               value={mailCc}
-              onChange={setMailCc}
+              onChange={(val) => handleSelectToken(val, setMailCc, mailCc)}
+              filterOption={(input, option) =>
+                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              tokenSeparators={[',', ';']}
             />
           </div>
+
           <div>
             <Text style={{ display: 'block', marginBottom: 4 }}>主题</Text>
             <Input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} />
           </div>
+
+          <div>
+            <Text style={{ display: 'block', marginBottom: 4 }}>附件</Text>
+            {fsContent.trim() ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: docxOverLimit ? '#fff2f0' : '#f6ffed',
+                border: `1px solid ${docxOverLimit ? '#ffccc7' : '#b7eb8f'}`,
+              }}>
+                <span>📎</span>
+                <Text style={{ color: docxOverLimit ? '#ff4d4f' : undefined }}>
+                  {`FS_需求规格_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.docx`}
+                  {docxSizeKB !== null && ` (~${docxSizeKB} KB)`}
+                  {docxSizeKB === null && fsContent.trim() && ' (生成中…)'}
+                </Text>
+                {docxOverLimit && (
+                  <Text type="danger" style={{ fontSize: 12 }}>超过 5MB 限制，无法发送</Text>
+                )}
+              </div>
+            ) : (
+              <Text type="secondary" style={{ fontSize: 12 }}>请先生成 FS</Text>
+            )}
+          </div>
+
           <Button
             type="primary"
             icon={<SendOutlined />}
             loading={sending}
+            disabled={sendDisabled}
             onClick={handleSendMail}
-            style={{ background: '#FFE600', color: '#2E2E38', borderColor: '#FFE600' }}
+            style={sendDisabled ? undefined : { background: '#FFE600', color: '#2E2E38', borderColor: '#FFE600' }}
           >
             发送邮件
           </Button>
