@@ -2,12 +2,15 @@ import nodemailer from 'nodemailer';
 import logger from '../lib/logger';
 import prisma from '../lib/prisma';
 
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
 export interface SendSpecDocumentsParams {
   to: string[];
   cc?: string[];
   subject: string;
-  fsContent: string;
-  referencePrompt?: string;
+  body: string;
+  attachmentBase64: string;
+  attachmentName: string;
   userId?: number;
 }
 
@@ -18,21 +21,35 @@ class EmailService {
     return cfg;
   }
 
-  async sendSpecDocuments(params: SendSpecDocumentsParams): Promise<void> {
-    const cfg = await this.getSmtpConfig();
-    const transporter = nodemailer.createTransport({
+  private createTransport(cfg: Awaited<ReturnType<typeof this.getSmtpConfig>>) {
+    return nodemailer.createTransport({
       host: cfg.host,
       port: cfg.port,
       secure: cfg.secure,
       auth: cfg.user && cfg.password ? { user: cfg.user, pass: cfg.password } : undefined,
     });
+  }
 
-    const text = [
-      '======== FS（功能规格） ========', '',
-      params.fsContent.trim(), '',
-      '======== 代码参考提示词 ========', '',
-      params.referencePrompt?.trim() || '（未生成或为空）',
-    ].join('\n');
+  async sendTestEmail(to: string): Promise<void> {
+    const cfg = await this.getSmtpConfig();
+    const transporter = this.createTransport(cfg);
+    await transporter.sendMail({
+      from: cfg.fromName ? `"${cfg.fromName}" <${cfg.fromAddr}>` : cfg.fromAddr,
+      to,
+      subject: 'SMTP 测试邮件',
+      text: '这是一封测试邮件，验证 SMTP 配置是否正确。',
+    });
+    logger.info('[EmailService] Test email sent', { to });
+  }
+
+  async sendSpecDocuments(params: SendSpecDocumentsParams): Promise<void> {
+    const attachmentBuffer = Buffer.from(params.attachmentBase64, 'base64');
+    if (attachmentBuffer.length > MAX_ATTACHMENT_BYTES) {
+      throw new Error(`附件超过 5MB 限制（当前 ${(attachmentBuffer.length / 1024 / 1024).toFixed(1)} MB）`);
+    }
+
+    const cfg = await this.getSmtpConfig();
+    const transporter = this.createTransport(cfg);
 
     let info: Awaited<ReturnType<typeof transporter.sendMail>>;
     try {
@@ -41,7 +58,15 @@ class EmailService {
         to: params.to.join(', '),
         cc: params.cc?.length ? params.cc.join(', ') : undefined,
         subject: params.subject,
-        text,
+        text: params.body,
+        attachments: [
+          {
+            filename: params.attachmentName,
+            content: attachmentBuffer,
+            contentType:
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          },
+        ],
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);

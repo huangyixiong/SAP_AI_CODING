@@ -43,12 +43,7 @@ router.put('/smtp', asyncHandler(async (req, res) => {
 router.post('/smtp/test', asyncHandler(async (req, res) => {
   const { to } = z.object({ to: z.string().email() }).parse(req.body);
   const emailService = new EmailService();
-  await emailService.sendSpecDocuments({
-    to: [to],
-    subject: 'SMTP 测试邮件',
-    fsContent: '这是一封测试邮件，验证 SMTP 配置是否正确。',
-    referencePrompt: '',
-  });
+  await emailService.sendTestEmail(to);
   logger.info('[MailConfig] SMTP test email sent', { to });
   res.json({ success: true });
 }));
