@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Button, Dropdown, message } from 'antd';
 import { DownloadOutlined, CopyOutlined, DownOutlined } from '@ant-design/icons';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
+import { generateDocxBlob } from '../../lib/docxUtils';
 
 interface ExportButtonProps {
   content: string;
@@ -26,38 +26,7 @@ export default function ExportButton({ content, filename, showCopy }: ExportButt
   const exportWord = async () => {
     setExporting(true);
     try {
-      const lines = content.split('\n');
-      const children: (Paragraph)[] = [];
-
-      for (const line of lines) {
-        if (line.startsWith('# ')) {
-          children.push(new Paragraph({ text: line.slice(2), heading: HeadingLevel.HEADING_1 }));
-        } else if (line.startsWith('## ')) {
-          children.push(new Paragraph({ text: line.slice(3), heading: HeadingLevel.HEADING_2 }));
-        } else if (line.startsWith('### ')) {
-          children.push(new Paragraph({ text: line.slice(4), heading: HeadingLevel.HEADING_3 }));
-        } else if (line.trim() === '') {
-          children.push(new Paragraph({ text: '' }));
-        } else {
-          // Basic formatting: strip markdown symbols for plain text
-          const plainText = line
-            .replace(/\*\*(.*?)\*\*/g, '$1')
-            .replace(/\*(.*?)\*/g, '$1')
-            .replace(/`(.*?)`/g, '$1')
-            .replace(/^[-*+]\s/, '• ');
-          children.push(
-            new Paragraph({
-              children: [new TextRun({ text: plainText })],
-            })
-          );
-        }
-      }
-
-      const doc = new Document({
-        sections: [{ properties: {}, children }],
-      });
-
-      const blob = await Packer.toBlob(doc);
+      const blob = await generateDocxBlob(content);
       saveAs(blob, `${filename}.docx`);
       message.success('Word 文档导出成功');
     } catch (err) {
