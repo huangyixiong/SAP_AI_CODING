@@ -4,8 +4,9 @@ export interface SendSpecDocumentsRequest {
   to: string[];
   cc?: string[];
   subject: string;
-  fsContent: string;
-  referencePrompt: string;
+  body: string;
+  attachmentBase64: string;
+  attachmentName: string;
 }
 
 export async function sendSpecDocuments(data: SendSpecDocumentsRequest): Promise<void> {
