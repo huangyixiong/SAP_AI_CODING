@@ -247,15 +247,16 @@ export default function AppLayout() {
                   fontWeight: EYTypography.weights.bold, 
                   lineHeight: EYTypography.lineHeights.tight, 
                   letterSpacing: EYTypography.letterSpacings.wider,
-                  textTransform: 'uppercase'
+                  textTransform: 'uppercase',
+                  fontSize: EYTypography.sizes.xs,
                 }}>
-                  AI
+                  InTelligent SAP
                 </div>
-                <div style={{ 
-                  color: 'rgba(255,255,255,0.6)', 
-                  fontSize: EYTypography.sizes.xs, 
-                  lineHeight: EYTypography.lineHeights.tight, 
-                  letterSpacing: EYTypography.letterSpacings.wide 
+                <div style={{
+                  color: 'rgba(255,255,255,0.6)',
+                  fontSize: EYTypography.sizes.xs,
+                  lineHeight: EYTypography.lineHeights.tight,
+                  letterSpacing: EYTypography.letterSpacings.wide
                 }}>
                   Assistant
                 </div>
