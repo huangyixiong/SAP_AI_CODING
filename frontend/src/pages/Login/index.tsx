@@ -30,7 +30,7 @@ export default function LoginPage() {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f0f2f5' }}>
-      <Card title="InTelligent SAP Assistant 登录" style={{ width: 380 }}>
+      <Card title="Intelligent SAP Assistant 登录" style={{ width: 380 }}>
         <Form onFinish={onFinish} layout="vertical">
           <Form.Item label="用户名" name="username" rules={[{ required: true }]}>
             <Input autoFocus />

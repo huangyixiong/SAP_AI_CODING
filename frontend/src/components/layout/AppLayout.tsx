@@ -241,16 +241,15 @@ export default function AppLayout() {
                 flexDirection: 'column',
                 justifyContent: 'center',
               }}>
-                <div style={{ 
-                  color: EYColors.yellow, 
-                  fontSize: EYTypography.sizes.sm, 
-                  fontWeight: EYTypography.weights.bold, 
-                  lineHeight: EYTypography.lineHeights.tight, 
+                <div style={{
+                  color: EYColors.yellow,
+                  fontSize: EYTypography.sizes.xs,
+                  fontWeight: EYTypography.weights.bold,
+                  lineHeight: EYTypography.lineHeights.tight,
                   letterSpacing: EYTypography.letterSpacings.wider,
                   textTransform: 'uppercase',
-                  fontSize: EYTypography.sizes.xs,
                 }}>
-                  InTelligent SAP
+                  Intelligent SAP
                 </div>
                 <div style={{
                   color: 'rgba(255,255,255,0.6)',
