@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ISectionOptions } from 'docx';
 
 function toParagraphs(content: string): Paragraph[] {
   return content.split('\n').map((line) => {
@@ -16,7 +16,7 @@ function toParagraphs(content: string): Paragraph[] {
 }
 
 export async function generateDocxBlob(content: string, referencePrompt?: string): Promise<Blob> {
-  const sections: ConstructorParameters<typeof Document>[0]['sections'] = [
+  const sections: ISectionOptions[] = [
     { properties: {}, children: toParagraphs(content) },
   ];
   if (referencePrompt?.trim()) {
