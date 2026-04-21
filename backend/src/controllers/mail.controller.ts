@@ -34,6 +34,7 @@ export async function sendSpecDocuments(req: Request, res: Response): Promise<vo
     await emailService.sendSpecDocuments({ ...parseResult.data, userId });
     res.json({ success: true, message: '邮件已发送' });
   } catch (err) {
+    console.error('[mail] SMTP error:', err instanceof Error ? err.message : err);
     res.status(503).json({
       success: false,
       error: err instanceof Error ? err.message : '发送失败',

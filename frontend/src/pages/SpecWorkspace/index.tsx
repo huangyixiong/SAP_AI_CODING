@@ -215,21 +215,6 @@ export default function SpecWorkspace() {
     });
   };
 
-  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  const handleSelectToken = (
-    value: string[],
-    setter: (v: string[]) => void,
-    prev: string[]
-  ) => {
-    const added = value.find((v) => !prev.includes(v));
-    if (added && !EMAIL_REGEX.test(added)) {
-      message.warning('邮箱格式不正确');
-      setter(prev);
-      return;
-    }
-    setter(value);
-  };
 
   const handleSendMail = async () => {
     if (!fsContent.trim()) {
@@ -258,13 +243,12 @@ export default function SpecWorkspace() {
       const attachmentBase64 = btoa(binary);
 
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const body = referencePrompt.trim() || '请查收附件中的功能规格文档，如有疑问请联系发件人。';
 
       await sendSpecDocuments({
         to: mailTo,
         ...(mailCc.length ? { cc: mailCc } : {}),
         subject: mailSubject.trim() || '需求规格交付',
-        body,
+        body: referencePrompt.trim() || '请查收附件中的功能规格文档，如有疑问请联系发件人。',
         attachmentBase64,
         attachmentName: `FS_需求规格_${today}.docx`,
       });
@@ -514,7 +498,7 @@ export default function SpecWorkspace() {
             <Alert
               type="warning"
               showIcon
-              message="开发提示词未生成，将使用默认正文发送"
+              message="开发提示词未生成，将使用默认文本作为邮件正文"
             />
           )}
           {!fsContent.trim() && (
@@ -532,14 +516,13 @@ export default function SpecWorkspace() {
             <Select
               mode="multiple"
               style={{ width: '100%' }}
-              placeholder="下拉选择或输入邮箱后回车"
+              placeholder="下拉选择收件人"
               options={recipientGroups}
               value={mailTo}
-              onChange={(val) => handleSelectToken(val, setMailTo, mailTo)}
+              onChange={setMailTo}
               filterOption={(input, option) =>
                 String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              tokenSeparators={[',', ';']}
             />
           </div>
 
@@ -548,14 +531,13 @@ export default function SpecWorkspace() {
             <Select
               mode="multiple"
               style={{ width: '100%' }}
-              placeholder="下拉选择或输入邮箱后回车"
+              placeholder="下拉选择抄送人（可选）"
               options={recipientGroups}
               value={mailCc}
-              onChange={(val) => handleSelectToken(val, setMailCc, mailCc)}
+              onChange={setMailCc}
               filterOption={(input, option) =>
                 String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              tokenSeparators={[',', ';']}
             />
           </div>
 

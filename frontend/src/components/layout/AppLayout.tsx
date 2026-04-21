@@ -61,9 +61,15 @@ function buildMenuItems(isAdmin: boolean): MenuItem[] {
     },
     ...(isAdmin ? [
       { type: 'divider' as const },
-      { key: '/admin/users', label: '用户管理', icon: <TeamOutlined /> },
-      { key: '/admin/roles', label: '角色权限', icon: <SafetyOutlined /> },
-      { key: '/admin/mail-config', label: '邮件配置', icon: <MailOutlined /> },
+      {
+        key: 'system-admin',
+        label: '系统管理',
+        type: 'group' as const,
+        children: [
+          { key: '/admin/users', label: '用户管理', icon: <TeamOutlined /> },
+          { key: '/admin/roles', label: '角色权限', icon: <SafetyOutlined /> },
+        ],
+      },
     ] : []),
   ] as MenuItem[];
 }
@@ -347,6 +353,39 @@ export default function AppLayout() {
               </>
             )}
           </div>
+
+          {/* ── Mail Config Panel ── */}
+          {isAdmin() && (
+            <div
+              style={{
+                borderTop: `1px solid rgba(255,230,0,0.2)`,
+                padding: `${EYSpacing.md}px ${EYSpacing.lg}px`,
+                flexShrink: 0,
+                background: 'rgba(0,0,0,0.15)'
+              }}
+            >
+              <div
+                onClick={() => navigate('/admin/mail-config')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: EYSpacing.sm,
+                  padding: `${EYSpacing.xs}px ${EYSpacing.sm}px`,
+                  borderRadius: EYBorderRadius.md,
+                  background: currentPath === '/admin/mail-config' ? 'rgba(255,230,0,0.12)' : 'rgba(255,255,255,0.04)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,230,0,0.12)')}
+                onMouseLeave={e => (e.currentTarget.style.background = currentPath === '/admin/mail-config' ? 'rgba(255,230,0,0.12)' : 'rgba(255,255,255,0.04)')}
+              >
+                <MailOutlined style={{ color: EYColors.yellow, fontSize: EYTypography.sizes.sm }} />
+                <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: EYTypography.sizes.sm, fontWeight: EYTypography.weights.medium }}>
+                  邮件配置
+                </span>
+              </div>
+            </div>
+          )}
         </Sider>
         )}
 
@@ -437,7 +476,10 @@ export default function AppLayout() {
           mode="inline"
           selectedKeys={[currentPath]}
           defaultOpenKeys={['core']}
-          items={menuItems}
+          items={[
+            ...menuItems,
+            ...(isAdmin() ? [{ key: '/admin/mail-config', label: '邮件配置', icon: <MailOutlined /> }] : []),
+          ]}
           onClick={({ key }) => {
             navigate(key);
             setMobileMenuOpen(false);

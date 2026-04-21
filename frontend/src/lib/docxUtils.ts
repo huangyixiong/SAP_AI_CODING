@@ -1,28 +1,33 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 
-export async function generateDocxBlob(content: string): Promise<Blob> {
-  const lines = content.split('\n');
-  const children: Paragraph[] = [];
+function toParagraphs(content: string): Paragraph[] {
+  return content.split('\n').map((line) => {
+    if (line.startsWith('# ')) return new Paragraph({ text: line.slice(2), heading: HeadingLevel.HEADING_1 });
+    if (line.startsWith('## ')) return new Paragraph({ text: line.slice(3), heading: HeadingLevel.HEADING_2 });
+    if (line.startsWith('### ')) return new Paragraph({ text: line.slice(4), heading: HeadingLevel.HEADING_3 });
+    if (line.trim() === '') return new Paragraph({ text: '' });
+    const plainText = line
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`(.*?)`/g, '$1')
+      .replace(/^[-*+]\s/, '• ');
+    return new Paragraph({ children: [new TextRun({ text: plainText })] });
+  });
+}
 
-  for (const line of lines) {
-    if (line.startsWith('# ')) {
-      children.push(new Paragraph({ text: line.slice(2), heading: HeadingLevel.HEADING_1 }));
-    } else if (line.startsWith('## ')) {
-      children.push(new Paragraph({ text: line.slice(3), heading: HeadingLevel.HEADING_2 }));
-    } else if (line.startsWith('### ')) {
-      children.push(new Paragraph({ text: line.slice(4), heading: HeadingLevel.HEADING_3 }));
-    } else if (line.trim() === '') {
-      children.push(new Paragraph({ text: '' }));
-    } else {
-      const plainText = line
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/`(.*?)`/g, '$1')
-        .replace(/^[-*+]\s/, '• ');
-      children.push(new Paragraph({ children: [new TextRun({ text: plainText })] }));
-    }
+export async function generateDocxBlob(content: string, referencePrompt?: string): Promise<Blob> {
+  const sections: ConstructorParameters<typeof Document>[0]['sections'] = [
+    { properties: {}, children: toParagraphs(content) },
+  ];
+  if (referencePrompt?.trim()) {
+    sections.push({
+      properties: {},
+      children: [
+        new Paragraph({ text: '开发提示词', heading: HeadingLevel.HEADING_1 }),
+        ...toParagraphs(referencePrompt),
+      ],
+    });
   }
-
-  const doc = new Document({ sections: [{ properties: {}, children }] });
+  const doc = new Document({ sections });
   return Packer.toBlob(doc);
 }
