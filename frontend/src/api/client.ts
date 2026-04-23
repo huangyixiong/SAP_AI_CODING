@@ -80,58 +80,92 @@ export function createSSEStream(
 ): AbortController {
   const controller = new AbortController();
 
-  const token = useAuthStore.getState().accessToken;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Use a probe request through apiClient so the axios interceptor can
+  // refresh the token before the SSE fetch, which bypasses interceptors.
+  const startStream = (token: string | null) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
+    fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (response.status === 401) {
+          onError(new Error('未登录或登录已过期，请刷新页面'));
+          return;
+        }
+        if (!response.ok || !response.body) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let receivedSseEvent = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
+          buffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data) {
-              try {
-                const parsed = JSON.parse(data);
-                onEvent(parsed);
-                if (parsed.type === 'done' || parsed.type === 'error') {
-                  onDone(parsed.type === 'done' ? 'done' : 'error');
-                  return;
+          // If the first chunk is raw JSON (not SSE), the proxy returned an error
+          if (!receivedSseEvent && !buffer.includes('data: ')) {
+            try {
+              const json = JSON.parse(buffer.trim());
+              const msg = json?.error?.message || json?.message || `服务器错误`;
+              onError(new Error(msg));
+              return;
+            } catch {
+              // Not JSON either — continue as normal SSE
+            }
+          }
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              receivedSseEvent = true;
+              const data = line.slice(6).trim();
+              if (data) {
+                try {
+                  const parsed = JSON.parse(data);
+                  onEvent(parsed);
+                  if (parsed.type === 'done' || parsed.type === 'error') {
+                    onDone(parsed.type === 'done' ? 'done' : 'error');
+                    return;
+                  }
+                } catch {
+                  // Ignore parse errors
                 }
-              } catch {
-                // Ignore parse errors
               }
             }
           }
         }
-      }
-      onDone('eof');
-    })
-    .catch((err: Error) => {
-      if (err.name !== 'AbortError') {
-        onError(err);
-      }
-    });
+        onDone('eof');
+      })
+      .catch((err: Error) => {
+        if (err.name !== 'AbortError') {
+          onError(err);
+        }
+      });
+  };
+
+  // Trigger a lightweight axios call to ensure the token is refreshed first
+  const token = useAuthStore.getState().accessToken;
+  if (!token) {
+    // No token in store: try refresh via axios (interceptor handles it)
+    apiClient.get('/auth/me')
+      .then(() => startStream(useAuthStore.getState().accessToken))
+      .catch(() => onError(new Error('未登录或登录已过期，请重新登录')));
+  } else {
+    startStream(token);
+  }
 
   return controller;
 }
+
