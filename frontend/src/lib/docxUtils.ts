@@ -3,9 +3,10 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle,
 } from 'docx';
 
-// Parse inline markdown: **bold**, *italic*, `code`
-function parseInline(text: string): TextRun[] {
-  if (!text) return [new TextRun({ text: '' })];
+// Parse inline markdown: **bold**, *italic*, `code`  (also strips HTML tags like <br>)
+function parseInline(raw: string): TextRun[] {
+  if (!raw) return [new TextRun({ text: '' })];
+  const text = raw.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '');
   const runs: TextRun[] = [];
   const pattern = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`/g;
   let lastIndex = 0;
@@ -156,6 +157,16 @@ function toElements(content: string): (Paragraph | Table)[] {
         border: {
           left: { style: BorderStyle.SINGLE, size: 12, color: 'FFE600', space: 8 },
         },
+      }));
+      i++;
+      continue;
+    }
+
+    // Indented unordered list (nested)
+    if (/^\s{2,}[-*+]\s/.test(line)) {
+      elements.push(new Paragraph({
+        children: [new TextRun({ text: '◦ ' }), ...parseInline(line.replace(/^\s+[-*+]\s/, ''))],
+        indent: { left: 720 },
       }));
       i++;
       continue;
