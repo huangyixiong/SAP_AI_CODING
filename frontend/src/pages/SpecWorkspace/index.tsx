@@ -417,9 +417,11 @@ export default function SpecWorkspace() {
           style={{ fontFamily: 'Consolas, Monaco, Microsoft YaHei, sans-serif', fontSize: 13 }}
         />
         {fsContent.length > 0 && (
-          <Divider orientation="left" plain style={{ marginTop: 16 }}>
-            预览
-          </Divider>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 8px' }}>
+            <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 13, whiteSpace: 'nowrap' }}>预览</span>
+            <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
+            <ExportButton content={fsContent} filename="FS_需求规格" />
+          </div>
         )}
         {fsContent.length > 0 && (
           <MarkdownPreview
